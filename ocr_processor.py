@@ -216,6 +216,102 @@ def detect_currency(markdown: str) -> str:
     print("No currency symbol detected, defaulting to EUR")
     return 'EUR'
 
+def split_bill(items: List[Dict]) -> Dict[str, float]:
+    """
+    Split the bill among users based on shared items.
+    
+    Args:
+        items (List[Dict]): List of items with 'shared_by' and 'converted_total' keys
+        
+    Returns:
+        Dict[str, float]: Dictionary mapping each user to their total owed amount
+    """
+    # Initialize dictionary to store each user's total
+    user_totals = {}
+    
+    # Process each item
+    for item in items:
+        # Skip items without shared_by or with empty shared_by
+        if not item.get('shared_by'):
+            print(f"Debug: Skipping item '{item.get('item', 'Unknown')}' - no users assigned")
+            continue
+            
+        # Get the total amount and number of users sharing
+        total = item.get('converted_total', 0)
+        users = item['shared_by']
+        share_per_user = round(total / len(users), 2)
+        
+        print(f"Debug: Item '{item.get('item', 'Unknown')}' - {total} split among {len(users)} users = {share_per_user} each")
+        
+        # Add each user's share to their total
+        for user in users:
+            user_totals[user] = round(user_totals.get(user, 0) + share_per_user, 2)
+    
+    return user_totals
+
+def get_participants() -> List[str]:
+    """
+    Get the list of participants splitting the bill.
+    
+    Returns:
+        List[str]: List of participant names
+    """
+    participants = []
+    print("\nEnter the names of people splitting the bill (press Enter twice when done):")
+    while True:
+        name = input("Enter name (or press Enter to finish): ").strip()
+        if not name:
+            if not participants:
+                print("Please enter at least one name!")
+                continue
+            break
+        participants.append(name)
+    return participants
+
+def assign_items_to_participants(items: List[Dict], participants: List[str]) -> List[Dict]:
+    """
+    Interactively assign items to participants.
+    
+    Args:
+        items (List[Dict]): List of items to assign
+        participants (List[str]): List of participant names
+        
+    Returns:
+        List[Dict]: Updated items with shared_by information
+    """
+    print("\nAssigning items to participants:")
+    for item in items:
+        print(f"\nItem: {item['item']} - {item['converted_total']:.2f}")
+        print("Who is sharing this item? (enter numbers, comma-separated)")
+        
+        # Show numbered list of participants
+        for i, participant in enumerate(participants, 1):
+            print(f"{i}. {participant}")
+        
+        while True:
+            try:
+                # Get user input and convert to list of indices
+                choice = input("Enter numbers (e.g., '1,3'): ").strip()
+                if not choice:
+                    print("Please select at least one person!")
+                    continue
+                    
+                # Convert input to list of participant names
+                indices = [int(x.strip()) - 1 for x in choice.split(',')]
+                if any(i < 0 or i >= len(participants) for i in indices):
+                    print("Invalid selection! Please try again.")
+                    continue
+                    
+                # Assign selected participants to the item
+                item['shared_by'] = [participants[i] for i in indices]
+                break
+                
+            except ValueError:
+                print("Invalid input! Please enter numbers separated by commas.")
+                continue
+    
+    return items
+
 def process_document(image_path: str, target_currency: str = "USD") -> Optional[str]:
     """
     Process a document using Mistral OCR API.
@@ -285,6 +381,17 @@ def process_document(image_path: str, target_currency: str = "USD") -> Optional[
                         for item in converted_items:
                             if "converted_price" in item:
                                 print(f"- {item['item']}: {item['qty']} x {target_currency} {item['converted_price']:.2f} = {target_currency} {item['converted_total']:.2f}")
+                        
+                        # Get participants and assign items
+                        participants = get_participants()
+                        converted_items = assign_items_to_participants(converted_items, participants)
+                        
+                        # Split the bill
+                        user_totals = split_bill(converted_items)
+                        if user_totals:
+                            print(f"\nBill Split ({target_currency}):")
+                            for user, amount in user_totals.items():
+                                print(f"- {user}: {target_currency} {amount:.2f}")
                 else:
                     print("\nNo items could be parsed from the receipt.")
                     print("Debug: Receipt format not recognized or no items found.")
