@@ -1,21 +1,23 @@
-# Receipt OCR and Currency Converter
+# Splitty - Receipt Splitting App
 
-A Python script that processes receipt images using Mistral's OCR API and converts prices between currencies.
+A React Native (Expo) app that helps split bills by scanning receipts and assigning items to people.
 
 ## Features
 
-- Image to text conversion using Mistral OCR API
-- Automatic receipt parsing and item extraction
-- Currency detection and conversion using exchangerate.host API
-- Support for multiple currencies (EUR, USD, GBP, JPY)
-- Handles zero-price items and error cases
+- Upload receipt images for OCR processing
+- Automatic currency detection and conversion to USD
+- Add/remove users for bill splitting
+- Assign items to multiple users
+- Calculate split amounts per person
 
 ## Setup
 
-1. Clone the repository:
+### Backend Setup
+
+1. Create a virtual environment:
 ```bash
-git clone <your-repo-url>
-cd <repo-name>
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 2. Install dependencies:
@@ -29,30 +31,48 @@ MISTRAL_API_KEY=your_mistral_api_key
 EXCHANGE_API_KEY=your_exchange_api_key
 ```
 
+4. Run the backend server:
+```bash
+python server.py
+```
+
+The server will run on http://localhost:5000
+
+### Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the Expo development server:
+```bash
+npm start
+```
+
+4. Use the Expo Go app on your mobile device to scan the QR code, or press 'i' for iOS simulator or 'a' for Android emulator.
+
 ## Usage
 
-Run the script with an image file:
-```bash
-python ocr_processor.py
-```
+1. Upload a receipt image
+2. Add the names of people splitting the bill
+3. Assign items to people by tapping on their names
+4. View the final split amounts per person
 
-By default, it will:
-1. Process the image using OCR
-2. Detect the source currency
-3. Convert prices to USD
+## Development
 
-You can modify the target currency in the code:
-```python
-process_document("receipt.jpg", target_currency="GBP")
-```
+- Backend: Python with Flask
+- Frontend: React Native with Expo
+- OCR: Mistral AI
+- Currency Conversion: ExchangeRate API
 
-## Requirements
+## Notes
 
-- Python 3.6+
-- mistralai
-- python-dotenv
-- requests
-
-## License
-
-MIT License 
+- The app requires an internet connection for OCR processing and currency conversion
+- Receipt images should be clear and well-lit for best results
+- All amounts are converted to USD for consistency 
