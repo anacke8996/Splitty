@@ -280,14 +280,14 @@ def assign_items_to_participants(items: List[Dict], participants: List[str]) -> 
     
     return items
 
-def process_document(image_data: str, target_currency: str = "USD") -> Optional[str]:
+def process_document(image_data: str, target_currency: str = "USD") -> Optional[Dict]:
     """
     Process a document using Mistral OCR API.
     Args:
         image_data (str): Base64-encoded image string (from frontend)
         target_currency (str): Currency code to convert prices to (default: USD)
     Returns:
-        Optional[str]: Markdown output from the OCR process, or None if processing failed
+        Optional[Dict]: Dictionary containing parsed receipt data, or None if processing failed
     Raises:
         ValueError: If API key is not found in environment variables
         Exception: If OCR processing fails
@@ -314,47 +314,42 @@ def process_document(image_data: str, target_currency: str = "USD") -> Optional[
             document=document,
             include_image_base64=True
         )
-        # Print and return the Markdown output from each page
+        
         if response.pages:
-            for i, page in enumerate(response.pages, 1):
-                print(f"\nPage {i} Raw OCR Output:")
-                print("=" * 50)
-                print(page.markdown)
-                print("=" * 50)
-                # Parse and print structured receipt data
-                items = parse_receipt_markdown(page.markdown)
-                if items:
-                    # Detect source currency from the receipt
-                    source_currency = detect_currency(page.markdown)
-                    print(f"\nParsed Receipt Items ({source_currency}):")
-                    for item in items:
-                        print(f"- {item['item']}: {item['qty']} x {source_currency} {item['price']:.2f} = {source_currency} {item['total']:.2f}")
-                    # Convert prices to target currency
-                    converted_items = convert_prices(items, source_currency, target_currency)
-                    if converted_items != items:  # Only show if conversion was successful
-                        print(f"\nConverted Prices ({source_currency} to {target_currency}):")
-                        for item in converted_items:
-                            if "converted_price" in item:
-                                print(f"- {item['item']}: {item['qty']} x {target_currency} {item['converted_price']:.2f} = {target_currency} {item['converted_total']:.2f}")
-                        # Get participants and assign items
-                        participants = get_participants()
-                        converted_items = assign_items_to_participants(converted_items, participants)
-                        # Split the bill
-                        user_totals = split_bill(converted_items)
-                        if user_totals:
-                            print(f"\nBill Split ({target_currency}):")
-                            for user, amount in user_totals.items():
-                                print(f"- {user}: {target_currency} {amount:.2f}")
-                else:
-                    print("\nNo items could be parsed from the receipt.")
-                    print("Debug: Receipt format not recognized or no items found.")
-            return "\n".join(page.markdown for page in response.pages)
+            # Get the first page's markdown
+            markdown = response.pages[0].markdown
+            
+            # Parse receipt items
+            items = parse_receipt_markdown(markdown)
+            if items:
+                # Detect source currency from the receipt
+                source_currency = detect_currency(markdown)
+                
+                # Convert prices to target currency
+                converted_items = convert_prices(items, source_currency, target_currency)
+                
+                return {
+                    'success': True,
+                    'items': converted_items,
+                    'source_currency': source_currency,
+                    'target_currency': target_currency,
+                    'raw_markdown': markdown
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'No items could be parsed from the receipt'
+                }
         else:
-            print("No pages found in OCR response")
-            return None
+            return {
+                'success': False,
+                'error': 'No pages found in OCR response'
+            }
     except Exception as e:
-        print(f"OCR processing failed: {e}")
-        return None
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 @app.route('/api/process-receipt', methods=['POST'])
 def process_receipt():
@@ -394,19 +389,19 @@ def split_bill_endpoint():
         items = data['items']
         participants = data['participants']
         
-        # Assign items to participants
-        assigned_items = assign_items_to_participants(items, participants)
-        
         # Split the bill
-        user_totals = split_bill(assigned_items)
+        user_totals = split_bill(items)
         
         return jsonify({
-            'assigned_items': assigned_items,
+            'success': True,
             'user_totals': user_totals
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 def main():
     """
