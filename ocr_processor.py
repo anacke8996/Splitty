@@ -13,7 +13,13 @@ print("EXCHANGE_API_KEY:", os.getenv("EXCHANGE_API_KEY"))
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:3000"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 def encode_image(image_path: str) -> str:
     """
