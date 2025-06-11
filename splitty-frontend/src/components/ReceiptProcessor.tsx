@@ -29,6 +29,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import { API_ENDPOINTS } from '../config/api';
+import Switch from '@mui/material/Switch';
 
 interface ReceiptItem {
   item: string;
@@ -45,12 +46,30 @@ interface ReceiptProcessorProps {
   onComplete?: (results: any) => void;
 }
 
-const BG_COLOR = '#F7F8FA';
-const CARD_COLOR = '#FFF';
-const PRIMARY = '#2563eb';
-const TEXT_PRIMARY = '#1A1A1A';
-const TEXT_SECONDARY = '#6B7280';
-const SHADOW = '0 4px 24px rgba(30,41,59,0.07)';
+const BG_COLOR = '#F9FAFB';
+const CARD_BORDER = '#E5E7EB';
+const CARD_SHADOW = '0 8px 32px rgba(30,41,59,0.10)';
+const CARD_RADIUS = 24;
+const CARD_PADDING = 32;
+const ITEM_RADIUS = 16;
+const ITEM_SPACING = 24;
+const USERNAME_FONT = {
+  fontSize: '1.5rem',
+  fontWeight: 600,
+  marginBottom: 24,
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
+const ITEM_NAME_FONT = {
+  fontWeight: 500,
+  fontSize: '1.13rem',
+  color: '#1A1A1A',
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
+const ITEM_SUB_FONT = {
+  fontSize: '0.97rem',
+  color: '#6B7280',
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -99,12 +118,15 @@ const ItemCard = styled(Box)(() => ({
 const ItemInfo = styled(Box)(() => ({
   flex: 1,
   minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
 }));
 
 const ItemName = styled(Typography)(() => ({
   fontWeight: 600,
   fontSize: '1.08rem',
-  color: TEXT_PRIMARY,
+  color: '#1A1A1A',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -113,15 +135,15 @@ const ItemName = styled(Typography)(() => ({
 
 const ItemDetails = styled(Typography)(() => ({
   fontSize: '0.97rem',
-  color: TEXT_SECONDARY,
+  color: '#6B7280',
   fontFamily: 'Inter, Roboto, system-ui, sans-serif',
 }));
 
 const ItemCheckbox = styled(Checkbox)(() => ({
   marginLeft: 12,
-  color: PRIMARY,
+  color: '#2563eb',
   '&.Mui-checked': {
-    color: PRIMARY,
+    color: '#2563eb',
   },
   '& .MuiSvgIcon-root': {
     fontSize: 26,
@@ -142,25 +164,59 @@ const CarouselContainer = styled(Box)(({ theme }) => ({
   minHeight: 520,
 }));
 
-const CarouselCard = styled(Card)<{active?: boolean, offset?: number}>(({ active, offset }) => ({
-  position: 'absolute',
-  left: '50%',
-  top: 0,
-  width: 340,
+const CarouselCard = styled(Card, {
+  shouldForwardProp: (prop) => prop !== 'active',
+})<{active?: boolean}>(({ active }) => ({
+  position: 'relative',
+  width: '100%',
+  maxWidth: 420,
   minHeight: 420,
-  maxWidth: '92vw',
-  transform: `translateX(-50%) scale(${active ? 1 : 0.92}) translateX(${offset ? offset * 60 : 0}px)` + (active ? '' : ' perspective(600px) rotateY(' + (offset && offset < 0 ? 8 : -8) + 'deg)'),
-  opacity: active ? 1 : 0.5,
-  zIndex: active ? 2 : 1,
-  background: CARD_COLOR,
-  borderRadius: 20,
-  boxShadow: active ? SHADOW : '0 2px 8px rgba(30,41,59,0.04)',
-  transition: 'transform 0.35s cubic-bezier(.4,2,.6,1), opacity 0.25s',
+  margin: '0 auto',
+  background: '#fff',
+  borderRadius: 24,
+  boxShadow: active ? '0 8px 32px rgba(30,41,59,0.10)' : '0 2px 8px rgba(30,41,59,0.04)',
+  border: `1.5px solid #E5E7EB`,
+  transition: 'box-shadow 0.25s, transform 0.25s',
   display: 'flex',
   flexDirection: 'column',
+  alignItems: 'stretch',
+  padding: '32px 20px 24px 20px',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  zIndex: active ? 2 : 1,
+  transform: active ? 'scale(1)' : 'scale(0.97)',
+  opacity: active ? 1 : 0.8,
+}));
+
+const UserName = styled(Box)(() => ({
+  fontSize: '1.5rem',
+  fontWeight: 600,
+  fontFamily: 'Inter, system-ui, sans-serif',
+  marginBottom: 12,
+  textAlign: 'center',
+  color: '#1A1A1A',
+}));
+
+const ItemsList = styled(Box)(() => ({
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 18,
+  flex: 1,
+}));
+
+const ItemRow = styled(Box)(() => ({
+  display: 'flex',
   alignItems: 'center',
-  padding: '32px 18px 18px 18px',
-  fontFamily: 'Inter, Roboto, system-ui, sans-serif',
+  justifyContent: 'space-between',
+  borderRadius: 16,
+  background: '#F3F4F6',
+  padding: '16px 16px',
+  boxShadow: '0 1px 4px rgba(30,41,59,0.04)',
+  transition: 'box-shadow 0.18s, background 0.18s',
+  '&:hover': {
+    boxShadow: '0 4px 16px rgba(30,41,59,0.10)',
+    background: '#F1F5F9',
+  },
 }));
 
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
@@ -337,64 +393,113 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   if (currentStep === 'participants') {
     return (
-      <StyledPaper>
-        <Typography variant="h5" gutterBottom>
-          Who's Splitting the Bill?
-        </Typography>
-        <Typography variant="body1" color="textSecondary" paragraph>
-          Add the names of everyone splitting the bill. You can add or remove names as needed.
-        </Typography>
-
-        <Box mb={3}>
-          <Box display="flex" gap={1} mb={2}>
-            <TextField
-              value={newParticipant}
-              onChange={(e) => setNewParticipant(e.target.value)}
-              onKeyPress={handleParticipantKeyPress}
-              placeholder="Enter name"
-              variant="outlined"
-              size="small"
-              fullWidth
-            />
-            <Button
-              variant="contained"
-              onClick={addParticipant}
-              disabled={!newParticipant.trim()}
-              startIcon={<AddIcon />}
-            >
-              Add
-            </Button>
-          </Box>
-
-          {participants.length > 0 && (
-            <List>
-              {participants.map((participant, index) => (
-                <ListItem
-                  key={index}
-                  secondaryAction={
+      <Box sx={{
+        minHeight: '100vh',
+        background: BG_COLOR,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}>
+        <Box sx={{
+          background: '#fff',
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
+          p: 6,
+          minWidth: 340,
+          maxWidth: 420,
+          width: '90vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 3,
+        }}>
+          <Typography variant="h5" fontWeight={700} align="center" gutterBottom sx={{ color: '#1A1A1A', mb: 2 }}>
+            Who's Splitting the Bill?
+          </Typography>
+          <Typography variant="body1" color="#6B7280" align="center" mb={2}>
+            Add the names of everyone splitting the bill. You can add or remove names as needed.
+          </Typography>
+          <Box sx={{ width: '100%' }}>
+            <Box display="flex" gap={1} mb={2}>
+              <TextField
+                value={newParticipant}
+                onChange={(e) => setNewParticipant(e.target.value)}
+                onKeyPress={handleParticipantKeyPress}
+                placeholder="Enter name"
+                variant="outlined"
+                size="medium"
+                fullWidth
+                sx={{ borderRadius: 2, background: '#F3F4F6' }}
+              />
+              <Button
+                variant="contained"
+                onClick={addParticipant}
+                disabled={!newParticipant.trim()}
+                sx={{
+                  background: '#2563eb',
+                  color: '#fff',
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1.2,
+                  fontSize: '1rem',
+                  textTransform: 'none',
+                  boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                  '&:hover': { background: '#1746a2' },
+                }}
+              >
+                Add
+              </Button>
+            </Box>
+            {participants.length > 0 && (
+              <Box sx={{ mt: 2, width: '100%' }}>
+                {participants.map((participant, index) => (
+                  <Box key={index} sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 2,
+                    mb: 1.5,
+                    background: '#F3F4F6',
+                    borderRadius: 2,
+                    fontWeight: 500,
+                    color: '#1A1A1A',
+                  }}>
+                    <span>{participant}</span>
                     <IconButton edge="end" onClick={() => removeParticipant(index)}>
                       <DeleteIcon />
                     </IconButton>
-                  }
-                >
-                  <ListItemText primary={participant} />
-                </ListItem>
-              ))}
-            </List>
-          )}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+          <Box display="flex" justifyContent="center" mt={3}>
+            <Button
+              variant="contained"
+              sx={{
+                background: '#2563eb',
+                color: '#fff',
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 4,
+                py: 1.5,
+                fontSize: '1.08rem',
+                boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                textTransform: 'none',
+                '&:hover': { background: '#1746a2' },
+              }}
+              onClick={() => setCurrentStep('assignments')}
+              disabled={participants.length === 0}
+              size="large"
+            >
+              Continue to Item Assignment
+            </Button>
+          </Box>
         </Box>
-
-        <Box display="flex" justifyContent="center" mt={3}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setCurrentStep('assignments')}
-            disabled={participants.length === 0}
-          >
-            Continue to Item Assignment
-          </Button>
-        </Box>
-      </StyledPaper>
+      </Box>
     );
   }
 
@@ -406,52 +511,50 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        pt: 2,
-        pb: 4,
-        fontFamily: 'Inter, Roboto, system-ui, sans-serif',
+        justifyContent: 'center',
+        fontFamily: 'Inter, system-ui, sans-serif',
       }}>
-        <Typography variant="h4" fontWeight={700} align="center" gutterBottom sx={{ color: TEXT_PRIMARY, fontFamily: 'Inter, Roboto, system-ui, sans-serif' }}>
-          Assign Items
-        </Typography>
-        <Typography variant="body1" align="center" mb={2} sx={{ color: TEXT_SECONDARY, fontFamily: 'Inter, Roboto, system-ui, sans-serif' }}>
-          Swipe left or right to assign items to each person
-        </Typography>
         <CarouselContainer>
           <SwipeableViews
             index={activeStep}
             onChangeIndex={setActiveStep}
             enableMouseEvents
             resistance
-            style={{ width: '100%', height: 480 }}
-            containerStyle={{ height: 480 }}
+            style={{ width: '100%', maxWidth: 420 }}
+            containerStyle={{ width: '100%', maxWidth: 420 }}
           >
             {participants.map((participant, idx) => {
-              const offset = idx - activeStep;
+              const active = idx === activeStep;
               return (
-                <Box key={participant} sx={{ position: 'relative', height: 480 }}>
-                  <CarouselCard active={offset === 0 ? 1 : 0} offset={offset} elevation={offset === 0 ? 6 : 2}>
-                    <Typography variant="h5" align="center" fontWeight={700} gutterBottom sx={{ mb: 2, color: TEXT_PRIMARY, fontFamily: 'Inter, Roboto, system-ui, sans-serif' }}>
-                      {participant}'s Items
-                    </Typography>
-                    <List sx={{ width: '100%', maxHeight: 340, overflow: 'auto', '::-webkit-scrollbar': { width: 0 } }}>
-                      {items.map((item, itemIndex) => (
-                        <ItemCard key={itemIndex}>
-                          <ItemInfo>
-                            <ItemName>{item.item}</ItemName>
-                            <ItemDetails>
-                              {item.qty} x {targetCurrency} {item.converted_price?.toFixed(2) || item.price.toFixed(2)} = {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
-                            </ItemDetails>
-                          </ItemInfo>
-                          <ItemCheckbox
-                            checked={item.shared_by?.includes(participant) || false}
-                            onChange={() => toggleItemAssignment(itemIndex, participant)}
-                          />
-                        </ItemCard>
-                      ))}
-                    </List>
-                  </CarouselCard>
-                </Box>
+                <CarouselCard key={participant} active={active}>
+                  <UserName>{participant}'s Items</UserName>
+                  <ItemsList>
+                    {items.map((item, itemIndex) => (
+                      <ItemRow key={itemIndex}>
+                        <ItemInfo>
+                          <Box sx={ITEM_NAME_FONT}>{item.item}</Box>
+                          <Box sx={ITEM_SUB_FONT}>
+                            {item.qty} x {targetCurrency} {item.converted_price?.toFixed(2) || item.price.toFixed(2)} = {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
+                          </Box>
+                        </ItemInfo>
+                        <Switch
+                          checked={item.shared_by?.includes(participant) || false}
+                          onChange={() => toggleItemAssignment(itemIndex, participant)}
+                          color="primary"
+                          sx={{
+                            ml: 2,
+                            '& .MuiSwitch-switchBase.Mui-checked': {
+                              color: '#2563eb',
+                            },
+                            '& .MuiSwitch-track': {
+                              backgroundColor: '#2563eb',
+                            },
+                          }}
+                        />
+                      </ItemRow>
+                    ))}
+                  </ItemsList>
+                </CarouselCard>
               );
             })}
           </SwipeableViews>
@@ -460,11 +563,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           <Button
             variant="contained"
             sx={{
-              background: PRIMARY,
+              background: '#2563eb',
               color: '#fff',
               borderRadius: 12,
               fontWeight: 600,
-              fontFamily: 'Inter, Roboto, system-ui, sans-serif',
+              fontFamily: 'Inter, system-ui, sans-serif',
               px: 4,
               py: 1.5,
               fontSize: '1.08rem',
@@ -485,30 +588,72 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   if (currentStep === 'summary') {
     return (
-      <StyledPaper>
-        <Typography variant="h5" gutterBottom>
-          Bill Split Summary
-        </Typography>
-        <List>
-          {Object.entries(userTotals).map(([user, amount]) => (
-            <ListItem key={user}>
-              <ListItemText
-                primary={user}
-                secondary={`${targetCurrency} ${amount.toFixed(2)}`}
-              />
-            </ListItem>
-          ))}
-        </List>
-        <Box display="flex" justifyContent="center" mt={3}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => onComplete?.(userTotals)}
-          >
-            Done
-          </Button>
+      <Box sx={{
+        minHeight: '100vh',
+        background: BG_COLOR,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}>
+        <Box sx={{
+          background: '#fff',
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
+          p: 6,
+          minWidth: 340,
+          maxWidth: 420,
+          width: '90vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 3,
+        }}>
+          <Typography variant="h5" fontWeight={700} align="center" gutterBottom sx={{ color: '#1A1A1A', mb: 2 }}>
+            Bill Split Summary
+          </Typography>
+          <Box sx={{ width: '100%', mt: 2 }}>
+            {Object.entries(userTotals).map(([user, amount]) => (
+              <Box key={user} sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                mb: 1.5,
+                background: '#F3F4F6',
+                borderRadius: 2,
+                fontWeight: 500,
+                color: '#1A1A1A',
+              }}>
+                <span>{user}</span>
+                <span>{targetCurrency} {amount.toFixed(2)}</span>
+              </Box>
+            ))}
+          </Box>
+          <Box display="flex" justifyContent="center" mt={3}>
+            <Button
+              variant="contained"
+              sx={{
+                background: '#2563eb',
+                color: '#fff',
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 4,
+                py: 1.5,
+                fontSize: '1.08rem',
+                boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                textTransform: 'none',
+                '&:hover': { background: '#1746a2' },
+              }}
+              onClick={() => onComplete?.(userTotals)}
+              size="large"
+            >
+              Done
+            </Button>
+          </Box>
         </Box>
-      </StyledPaper>
+      </Box>
     );
   }
 

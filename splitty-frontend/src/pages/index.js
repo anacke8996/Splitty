@@ -29,63 +29,75 @@ export default function Home() {
         setShowProcessor(false);
     };
 
-    return (
-        <Container maxWidth="md">
-            <Box sx={{ my: 4 }}>
-                <Typography variant="h4" component="h1" gutterBottom align="center">
-                    Splitty
-                </Typography>
-                <Typography variant="h6" align="center" color="textSecondary" paragraph>
-                    Split your bills with ease
-                </Typography>
+    if (showProcessor && imageData) {
+        return (
+            <ReceiptProcessor
+                imageData={imageData}
+                onComplete={handleProcessingComplete}
+            />
+        );
+    }
 
-                <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-                    {!showProcessor ? (
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: 2,
-                            }}
-                        >
-                            <input
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                id="receipt-upload"
-                                type="file"
-                                onChange={handleImageUpload}
-                            />
-                            <label htmlFor="receipt-upload">
-                                <Button
-                                    variant="contained"
-                                    component="span"
-                                    startIcon={<CloudUploadIcon />}
-                                    size="large"
-                                    sx={{
-                                        background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                                        '&:hover': {
-                                            background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
-                                        },
-                                    }}
-                                >
-                                    Upload Receipt
-                                </Button>
-                            </label>
-                            <Typography variant="body2" color="textSecondary">
-                                Supported formats: JPG, PNG, JPEG
-                            </Typography>
-                        </Box>
-                    ) : (
-                        imageData && (
-                            <ReceiptProcessor
-                                imageData={imageData}
-                                onComplete={handleProcessingComplete}
-                            />
-                        )
-                    )}
-                </Paper>
-            </Box>
-        </Container>
+    return (
+        <Box sx={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: 'Inter, system-ui, sans-serif' }}>
+            <Container maxWidth="sm">
+                <Box sx={{ my: 6 }}>
+                    <Box sx={{ textAlign: 'center', mb: 4 }}>
+                        <Typography variant="h3" component="h1" fontWeight={700} gutterBottom sx={{ color: '#1A1A1A' }}>
+                            Splitty
+                        </Typography>
+                        <Typography variant="h6" color="#6B7280" mb={2}>
+                            Split your bills with ease
+                        </Typography>
+                    </Box>
+                    <Box
+                        sx={{
+                            background: '#fff',
+                            borderRadius: 3,
+                            boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
+                            p: 6,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                        }}
+                    >
+                        <input
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id="receipt-upload"
+                            type="file"
+                            onChange={handleImageUpload}
+                        />
+                        <label htmlFor="receipt-upload">
+                            <Button
+                                variant="contained"
+                                component="span"
+                                startIcon={<CloudUploadIcon />}
+                                size="large"
+                                sx={{
+                                    background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                                    borderRadius: 2,
+                                    px: 5,
+                                    py: 1.5,
+                                    fontWeight: 600,
+                                    fontSize: '1.1rem',
+                                    textTransform: 'none',
+                                    boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                                    '&:hover': {
+                                        background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
+                                    },
+                                }}
+                            >
+                                Upload Receipt
+                            </Button>
+                        </label>
+                        <Typography variant="body2" color="#6B7280">
+                            Supported formats: JPG, PNG, JPEG
+                        </Typography>
+                    </Box>
+                </Box>
+            </Container>
+        </Box>
     );
 } 
