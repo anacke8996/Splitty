@@ -3,72 +3,91 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2563eb',
-      light: '#60a5fa',
-      dark: '#1d4ed8',
-      contrastText: '#ffffff',
+      main: '#e11d48',
+      contrastText: '#fff',
     },
     secondary: {
-      main: '#7c3aed',
-      light: '#a78bfa',
-      dark: '#5b21b6',
-      contrastText: '#ffffff',
+      main: '#2563eb',
+      contrastText: '#fff',
     },
     background: {
-      default: '#f8fafc',
-      paper: '#ffffff',
+      default: '#F9FAFB',
+      paper: '#fff',
     },
     text: {
-      primary: '#1e293b',
-      secondary: '#64748b',
+      primary: '#1A1A1A',
+      secondary: '#6B7280',
     },
-    divider: '#e2e8f0',
+    divider: '#e5e7eb',
+    error: {
+      main: '#e11d48',
+    },
+    success: {
+      main: '#22c55e',
+    },
+    warning: {
+      main: '#f59e42',
+    },
+    info: {
+      main: '#2563eb',
+    },
   },
   typography: {
     fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
     h1: {
       fontWeight: 700,
       fontSize: '2.5rem',
+      color: '#e11d48',
     },
     h2: {
       fontWeight: 600,
       fontSize: '2rem',
+      color: '#e11d48',
     },
     h3: {
       fontWeight: 600,
       fontSize: '1.75rem',
+      color: '#e11d48',
     },
     h4: {
       fontWeight: 600,
       fontSize: '1.5rem',
+      color: '#e11d48',
     },
     h5: {
       fontWeight: 600,
       fontSize: '1.25rem',
+      color: '#e11d48',
     },
     h6: {
       fontWeight: 600,
       fontSize: '1rem',
+      color: '#e11d48',
     },
     subtitle1: {
       fontSize: '1.1rem',
       fontWeight: 500,
+      color: '#6B7280',
     },
     subtitle2: {
       fontSize: '0.875rem',
       fontWeight: 500,
+      color: '#6B7280',
     },
     body1: {
       fontSize: '1rem',
       lineHeight: 1.5,
+      color: '#1A1A1A',
     },
     body2: {
       fontSize: '0.875rem',
       lineHeight: 1.5,
+      color: '#6B7280',
     },
     button: {
       textTransform: 'none',
       fontWeight: 600,
+      color: '#fff',
     },
   },
   shape: {

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import ReceiptProcessor from '../components/ReceiptProcessor';
-import { Box, Button, Container, Typography, Paper } from '@mui/material';
+import { Box, Button, Container, Typography, Paper, useTheme } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 export default function Home() {
     const [imageData, setImageData] = useState(null);
     const [showProcessor, setShowProcessor] = useState(false);
+    const theme = useTheme();
 
     const handleImageUpload = (event) => {
         const file = event.target.files?.[0];
@@ -39,23 +40,51 @@ export default function Home() {
     }
 
     return (
-        <Box sx={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: 'Inter, system-ui, sans-serif' }}>
-            <Container maxWidth="sm">
-                <Box sx={{ my: 6 }}>
+        <Box
+            sx={{
+                minHeight: '100vh',
+                width: '100vw',
+                background: `linear-gradient(135deg, ${theme.palette.background.default} 60%, #fff 100%)`,
+                fontFamily: 'Inter, system-ui, sans-serif',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: { xs: 4, sm: 8 },
+            }}
+        >
+            <Container maxWidth="sm" sx={{ px: { xs: 1, sm: 2 } }}>
+                <Box sx={{ my: { xs: 4, sm: 8 } }}>
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
-                        <Typography variant="h3" component="h1" fontWeight={700} gutterBottom sx={{ color: '#1A1A1A' }}>
+                        <Typography
+                            variant="h2"
+                            component="h1"
+                            fontWeight={700}
+                            gutterBottom
+                            sx={{
+                                color: theme.palette.primary.main,
+                                letterSpacing: 1,
+                                fontSize: { xs: '2.2rem', sm: '2.7rem' },
+                            }}
+                        >
                             Splitty
                         </Typography>
-                        <Typography variant="h6" color="#6B7280" mb={2}>
+                        <Typography
+                            variant="subtitle1"
+                            color="text.secondary"
+                            mb={2}
+                            sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}
+                        >
                             Split your bills with ease
                         </Typography>
                     </Box>
-                    <Box
+                    <Paper
+                        elevation={4}
                         sx={{
-                            background: '#fff',
-                            borderRadius: 3,
+                            background: theme.palette.background.paper,
+                            borderRadius: { xs: 3, sm: 4 },
                             boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
-                            p: 6,
+                            p: { xs: 3, sm: 6 },
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -75,27 +104,30 @@ export default function Home() {
                                 component="span"
                                 startIcon={<CloudUploadIcon />}
                                 size="large"
+                                color="secondary"
                                 sx={{
-                                    background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                                    background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                                     borderRadius: 2,
                                     px: 5,
                                     py: 1.5,
-                                    fontWeight: 600,
+                                    fontWeight: 700,
                                     fontSize: '1.1rem',
                                     textTransform: 'none',
+                                    color: '#fff',
                                     boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                                    letterSpacing: 0.5,
                                     '&:hover': {
-                                        background: 'linear-gradient(45deg, #1976D2 30%, #00BCD4 90%)',
+                                        background: `linear-gradient(90deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
                                     },
                                 }}
                             >
                                 Upload Receipt
                             </Button>
                         </label>
-                        <Typography variant="body2" color="#6B7280">
+                        <Typography variant="body2" color="text.secondary" align="center">
                             Supported formats: JPG, PNG, JPEG
                         </Typography>
-                    </Box>
+                    </Paper>
                 </Box>
             </Container>
         </Box>
