@@ -153,7 +153,7 @@ const ItemCheckbox = styled(Checkbox)(() => ({
 const VirtualizedSwipeableViews = virtualize(SwipeableViews);
 
 const CarouselContainer = styled(Box)(({ theme }) => ({
-  width: '100vw',
+  width: '100%',
   maxWidth: 500,
   margin: '0 auto',
   display: 'flex',
@@ -162,11 +162,14 @@ const CarouselContainer = styled(Box)(({ theme }) => ({
   overflow: 'visible',
   position: 'relative',
   minHeight: 520,
+  [theme.breakpoints.down('sm')]: {
+    minHeight: 480,
+  },
 }));
 
 const CarouselCard = styled(Card, {
   shouldForwardProp: (prop) => prop !== 'active',
-})<{active?: boolean}>(({ active }) => ({
+})<{active?: boolean}>(({ active, theme }) => ({
   position: 'relative',
   width: '100%',
   maxWidth: 420,
@@ -175,47 +178,213 @@ const CarouselCard = styled(Card, {
   background: '#fff',
   borderRadius: 24,
   boxShadow: active ? '0 8px 32px rgba(30,41,59,0.10)' : '0 2px 8px rgba(30,41,59,0.04)',
-  border: `1.5px solid #E5E7EB`,
-  transition: 'box-shadow 0.25s, transform 0.25s',
+  border: `1.5px solid ${theme.palette.divider}`,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
-  padding: '32px 20px 24px 20px',
+  padding: theme.spacing(3, 2),
   fontFamily: 'Inter, system-ui, sans-serif',
   zIndex: active ? 2 : 1,
   transform: active ? 'scale(1)' : 'scale(0.97)',
   opacity: active ? 1 : 0.8,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2, 1.5),
+    minHeight: 380,
+  },
 }));
 
-const UserName = styled(Box)(() => ({
+const UserName = styled(Box)(({ theme }) => ({
   fontSize: '1.5rem',
   fontWeight: 600,
   fontFamily: 'Inter, system-ui, sans-serif',
-  marginBottom: 12,
+  marginBottom: theme.spacing(2),
   textAlign: 'center',
-  color: '#1A1A1A',
+  color: theme.palette.text.primary,
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1.25rem',
+    marginBottom: theme.spacing(1.5),
+  },
 }));
 
-const ItemsList = styled(Box)(() => ({
+const ItemsList = styled(Box)(({ theme }) => ({
   width: '100%',
   display: 'flex',
   flexDirection: 'column',
-  gap: 18,
+  gap: theme.spacing(2),
   flex: 1,
+  overflowY: 'auto',
+  padding: theme.spacing(1),
+  '&::-webkit-scrollbar': {
+    width: '6px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: '#f1f1f1',
+    borderRadius: '3px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#888',
+    borderRadius: '3px',
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: '#555',
+  },
 }));
 
-const ItemRow = styled(Box)(() => ({
+const ItemRow = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   borderRadius: 16,
-  background: '#F3F4F6',
-  padding: '16px 16px',
+  background: theme.palette.background.default,
+  padding: theme.spacing(2),
   boxShadow: '0 1px 4px rgba(30,41,59,0.04)',
-  transition: 'box-shadow 0.18s, background 0.18s',
+  transition: 'all 0.2s ease-in-out',
   '&:hover': {
     boxShadow: '0 4px 16px rgba(30,41,59,0.10)',
-    background: '#F1F5F9',
+    background: theme.palette.action.hover,
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(1.5),
+  },
+}));
+
+const ParticipantInput = styled(TextField)(({ theme }) => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: theme.spacing(2),
+    backgroundColor: theme.palette.background.paper,
+    '&:hover': {
+      '& > fieldset': {
+        borderColor: theme.palette.primary.main,
+      },
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    padding: theme.spacing(1.5),
+  },
+}));
+
+const AddButton = styled(Button)(({ theme }) => ({
+  borderRadius: theme.spacing(2),
+  padding: theme.spacing(1.5, 3),
+  textTransform: 'none',
+  fontSize: '1rem',
+  fontWeight: 600,
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  '&:hover': {
+    boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+  },
+}));
+
+const ParticipantChip = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(1, 2),
+  borderRadius: theme.spacing(2),
+  backgroundColor: theme.palette.primary.main,
+  color: theme.palette.primary.contrastText,
+  margin: theme.spacing(0.5),
+  '& .MuiSvgIcon-root': {
+    marginLeft: theme.spacing(1),
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    '&:hover': {
+      opacity: 0.8,
+    },
+  },
+}));
+
+// SVG for scalloped (receipt) edge
+const ScallopEdge = styled('svg')({
+  display: 'block',
+  width: '100%',
+  height: 16,
+  marginBottom: -6,
+  marginTop: -6,
+});
+
+// ReceiptCard for depop-style look
+const ReceiptCard = styled(Box)(({ theme }) => ({
+  background: '#fff',
+  borderRadius: 24,
+  boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
+  maxWidth: 400,
+  width: '100%',
+  margin: '0 auto',
+  padding: theme.spacing(4, 3, 3, 3),
+  position: 'relative',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  overflow: 'hidden',
+}));
+
+const ReceiptTable = styled(Box)(({ theme }) => ({
+  width: '100%',
+  marginTop: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+}));
+
+const ReceiptRow = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: theme.spacing(1, 0),
+  borderBottom: `1px dashed #e5e7eb`,
+  fontSize: '1.05rem',
+  fontFamily: 'Menlo, monospace',
+}));
+
+const ReceiptTotalRow = styled(ReceiptRow)(({ theme }) => ({
+  fontWeight: 700,
+  fontSize: '1.15rem',
+  borderBottom: 'none',
+  marginTop: theme.spacing(1),
+  color: theme.palette.text.primary,
+}));
+
+const SelectAllButton = styled(Button)(({ theme }) => ({
+  fontSize: '0.85rem',
+  textTransform: 'none',
+  padding: theme.spacing(0.5, 2),
+  borderRadius: 12,
+  marginBottom: theme.spacing(1),
+  background: '#f3f4f6',
+  color: theme.palette.primary.main,
+  fontWeight: 600,
+  boxShadow: 'none',
+  '&:hover': {
+    background: theme.palette.primary.light,
+    color: '#fff',
+  },
+}));
+
+// Responsive scalloped wrapper for receipt
+const ReceiptScallopedWrapper = styled(Box)(({ theme }) => ({
+  width: '100vw',
+  maxWidth: 440,
+  margin: '0 auto',
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  paddingBottom: 'env(safe-area-inset-bottom)',
+  paddingTop: 'env(safe-area-inset-top)',
+  [theme.breakpoints.down('sm')]: {
+    maxWidth: '98vw',
+    width: '98vw',
+    paddingLeft: 'max(env(safe-area-inset-left), 2vw)',
+    paddingRight: 'max(env(safe-area-inset-right), 2vw)',
+  },
+}));
+
+const ResponsiveReceiptCard = styled(ReceiptCard)(({ theme }) => ({
+  width: '100%',
+  maxWidth: 440,
+  minWidth: 0,
+  padding: 'clamp(16px, 4vw, 32px)',
+  boxSizing: 'border-box',
+  [theme.breakpoints.down('sm')]: {
+    maxWidth: '98vw',
+    padding: 'clamp(8px, 4vw, 20px)',
   },
 }));
 
@@ -336,38 +505,6 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   const handleStepChange = (step: number) => {
     setActiveStep(step);
-  };
-
-  const slideRenderer = ({ index, key }: { index: number; key: string }) => {
-    const participant = participants[index];
-    return (
-      <SwipeableCard key={key}>
-        <ParticipantCard active={index === activeStep ? 1 : 0} elevation={index === activeStep ? 6 : 1}>
-          <CardContent>
-            <Typography variant="h5" align="center" fontWeight={700} gutterBottom>
-              {participant}'s Items
-            </Typography>
-            <List sx={{ maxHeight: 400, overflow: 'auto', pr: 1, pl: 1, '::-webkit-scrollbar': { width: 0 } }}>
-              {items.map((item, itemIndex) => (
-                <ItemCard key={itemIndex}>
-                  <ItemInfo>
-                    <ItemName>{item.item}</ItemName>
-                    <ItemDetails>
-                      {item.qty} x {targetCurrency} {item.converted_price?.toFixed(2) || item.price.toFixed(2)} = {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
-                    </ItemDetails>
-                  </ItemInfo>
-                  <ItemCheckbox
-                    checked={item.shared_by?.includes(participant) || false}
-                    onChange={() => toggleItemAssignment(itemIndex, participant)}
-                    color="primary"
-                  />
-                </ItemCard>
-              ))}
-            </List>
-          </CardContent>
-        </ParticipantCard>
-      </SwipeableCard>
-    );
   };
 
   if (loading) {
@@ -513,51 +650,66 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: 'Inter, system-ui, sans-serif',
+        width: '100vw',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
       }}>
         <CarouselContainer>
-          <SwipeableViews
+          <VirtualizedSwipeableViews
             index={activeStep}
             onChangeIndex={setActiveStep}
             enableMouseEvents
             resistance
-            style={{ width: '100%', maxWidth: 420 }}
-            containerStyle={{ width: '100%', maxWidth: 420 }}
-          >
-            {participants.map((participant, idx) => {
-              const active = idx === activeStep;
+            style={{ width: '100%', maxWidth: 440 }}
+            containerStyle={{ overflow: 'visible', width: '100%', maxWidth: 440 }}
+            slideRenderer={({ index, key }) => {
+              const participant = participants[index];
+              // Select all handler
+              const handleSelectAll = () => {
+                const updatedItems = items.map(item => ({
+                  ...item,
+                  shared_by: Array.from(new Set([...(item.shared_by || []), participant]))
+                }));
+                setItems(updatedItems);
+              };
               return (
-                <CarouselCard key={participant} active={active}>
-                  <UserName>{participant}'s Items</UserName>
-                  <ItemsList>
-                    {items.map((item, itemIndex) => (
-                      <ItemRow key={itemIndex}>
-                        <ItemInfo>
-                          <Box sx={ITEM_NAME_FONT}>{item.item}</Box>
-                          <Box sx={ITEM_SUB_FONT}>
-                            {item.qty} x {targetCurrency} {item.converted_price?.toFixed(2) || item.price.toFixed(2)} = {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
+                <ReceiptScallopedWrapper key={key}>
+                  <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
+                    <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill="#fff" />
+                  </ScallopEdge>
+                  <ResponsiveReceiptCard>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: '#e11d48', fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: 1, fontSize: { xs: 'clamp(1.05rem, 3vw, 1.25rem)', sm: '1.2rem', md: '1.25rem' } }}>
+                        {participant}
+                      </Typography>
+                      <SelectAllButton onClick={handleSelectAll} size="small">Select All</SelectAllButton>
+                    </Box>
+                    <ReceiptTable>
+                      {items.map((item, itemIndex) => (
+                        <ReceiptRow key={itemIndex} sx={{ opacity: 1, fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' } }}>
+                          <Box sx={{ fontWeight: item.shared_by?.includes(participant) ? 600 : 400 }}>{item.item}</Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ minWidth: 60, textAlign: 'right', fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' } }}>
+                              {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
+                            </Typography>
+                            <ItemCheckbox
+                              checked={item.shared_by?.includes(participant) || false}
+                              onChange={() => toggleItemAssignment(itemIndex, participant)}
+                              color="primary"
+                            />
                           </Box>
-                        </ItemInfo>
-                        <Switch
-                          checked={item.shared_by?.includes(participant) || false}
-                          onChange={() => toggleItemAssignment(itemIndex, participant)}
-                          color="primary"
-                          sx={{
-                            ml: 2,
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#2563eb',
-                            },
-                            '& .MuiSwitch-track': {
-                              backgroundColor: '#2563eb',
-                            },
-                          }}
-                        />
-                      </ItemRow>
-                    ))}
-                  </ItemsList>
-                </CarouselCard>
+                        </ReceiptRow>
+                      ))}
+                    </ReceiptTable>
+                  </ResponsiveReceiptCard>
+                  <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none" style={{ transform: 'rotate(180deg)' }}>
+                    <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill="#fff" />
+                  </ScallopEdge>
+                </ReceiptScallopedWrapper>
               );
-            })}
-          </SwipeableViews>
+            }}
+            slideCount={participants.length}
+          />
         </CarouselContainer>
         <Box display="flex" justifyContent="center" mt={3}>
           <Button
@@ -570,7 +722,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               fontFamily: 'Inter, system-ui, sans-serif',
               px: 4,
               py: 1.5,
-              fontSize: '1.08rem',
+              fontSize: { xs: 'clamp(1rem, 2.5vw, 1.08rem)', sm: '1.08rem' },
               boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
               textTransform: 'none',
               '&:hover': { background: '#1746a2' },
@@ -587,6 +739,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   }
 
   if (currentStep === 'summary') {
+    // Calculate total
+    const total = Object.values(userTotals).reduce((sum, v) => sum + v, 0);
     return (
       <Box sx={{
         minHeight: '100vh',
@@ -596,63 +750,59 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: 'Inter, system-ui, sans-serif',
+        width: '100vw',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
       }}>
-        <Box sx={{
-          background: '#fff',
-          borderRadius: 3,
-          boxShadow: '0 8px 32px rgba(30,41,59,0.10)',
-          p: 6,
-          minWidth: 340,
-          maxWidth: 420,
-          width: '90vw',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 3,
-        }}>
-          <Typography variant="h5" fontWeight={700} align="center" gutterBottom sx={{ color: '#1A1A1A', mb: 2 }}>
-            Bill Split Summary
-          </Typography>
-          <Box sx={{ width: '100%', mt: 2 }}>
-            {Object.entries(userTotals).map(([user, amount]) => (
-              <Box key={user} sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                p: 2,
-                mb: 1.5,
-                background: '#F3F4F6',
-                borderRadius: 2,
-                fontWeight: 500,
-                color: '#1A1A1A',
-              }}>
-                <span>{user}</span>
-                <span>{targetCurrency} {amount.toFixed(2)}</span>
-              </Box>
-            ))}
-          </Box>
-          <Box display="flex" justifyContent="center" mt={3}>
-            <Button
-              variant="contained"
-              sx={{
-                background: '#2563eb',
-                color: '#fff',
-                borderRadius: 2,
-                fontWeight: 600,
-                px: 4,
-                py: 1.5,
-                fontSize: '1.08rem',
-                boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
-                textTransform: 'none',
-                '&:hover': { background: '#1746a2' },
-              }}
-              onClick={() => onComplete?.(userTotals)}
-              size="large"
-            >
-              Done
-            </Button>
-          </Box>
-        </Box>
+        <ReceiptScallopedWrapper>
+          <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
+            <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill="#fff" />
+          </ScallopEdge>
+          <ResponsiveReceiptCard>
+            <Typography variant="h4" align="center" fontWeight={700} sx={{ color: '#e11d48', mb: 2, fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: 1, fontSize: { xs: 'clamp(1.2rem, 4vw, 1.7rem)', sm: '1.7rem' } }}>
+              Splitty
+            </Typography>
+            <ReceiptTable>
+              {Object.entries(userTotals).map(([user, amount]) => (
+                <ReceiptRow key={user} sx={{ fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' } }}>
+                  <Box>{user}</Box>
+                  <Box>{targetCurrency} {amount.toFixed(2)}</Box>
+                </ReceiptRow>
+              ))}
+              <ReceiptTotalRow>
+                <Box>Total</Box>
+                <Box>{targetCurrency} {total.toFixed(2)}</Box>
+              </ReceiptTotalRow>
+            </ReceiptTable>
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+              All amounts are in {targetCurrency}.
+            </Typography>
+            <Box display="flex" justifyContent="center" mt={3}>
+              <Button
+                variant="contained"
+                sx={{
+                  background: '#2563eb',
+                  color: '#fff',
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  px: 4,
+                  py: 1.5,
+                  fontSize: { xs: 'clamp(1rem, 2.5vw, 1.08rem)', sm: '1.08rem' },
+                  boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
+                  textTransform: 'none',
+                  '&:hover': { background: '#1746a2' },
+                }}
+                onClick={() => onComplete?.(userTotals)}
+                size="large"
+              >
+                Done
+              </Button>
+            </Box>
+          </ResponsiveReceiptCard>
+          <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none" style={{ transform: 'rotate(180deg)' }}>
+            <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill="#fff" />
+          </ScallopEdge>
+        </ReceiptScallopedWrapper>
       </Box>
     );
   }
