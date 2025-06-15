@@ -43,6 +43,33 @@ const UploadButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+const GradientTitle = styled('span')(({ theme }) => ({
+  fontWeight: 700,
+  fontSize: '2.5rem',
+  display: 'inline-block',
+  background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  color: 'transparent',
+  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  position: 'relative',
+  overflow: 'visible',
+  letterSpacing: 1,
+  fontFamily: 'Inter, system-ui, sans-serif',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    bottom: -8,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '60%',
+    height: 3,
+    background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+    borderRadius: 3,
+    opacity: 0.5,
+  },
+}));
+
 function App() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [showProcessor, setShowProcessor] = useState(false);
@@ -80,11 +107,10 @@ function App() {
             component="h1" 
             sx={{ 
               fontWeight: 700,
-              background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-              backgroundClip: 'text',
-              textFillColor: 'transparent',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              color: theme.palette.primary.main,
+              letterSpacing: 1,
+              fontSize: '2.5rem',
+              fontFamily: 'Inter, system-ui, sans-serif',
             }}
           >
             Splitty

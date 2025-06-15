@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SwipeableViews from 'react-swipeable-views';
-import { virtualize } from 'react-swipeable-views-utils';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
@@ -153,8 +152,6 @@ const ItemCheckbox = styled(Checkbox)(() => ({
     fontSize: 26,
   },
 }));
-
-const VirtualizedSwipeableViews = virtualize(SwipeableViews);
 
 const CarouselContainer = styled(Box)(({ theme }) => ({
   width: '100%',
@@ -392,6 +389,64 @@ const ResponsiveReceiptCard = styled(ReceiptCard)(({ theme }) => ({
   },
 }));
 
+const formatCurrency = (amount: number, currency: string) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+const PillToggle = styled('span')<{checked: boolean}>(({ theme, checked }) => ({
+  display: 'inline-block',
+  width: 36,
+  height: 22,
+  borderRadius: 9999,
+  background: checked ? theme.palette.secondary.main : '#e5e7eb',
+  position: 'relative',
+  transition: 'background 0.2s',
+  cursor: 'pointer',
+  verticalAlign: 'middle',
+  boxShadow: checked ? '0 2px 8px rgba(37,99,235,0.10)' : 'none',
+  border: checked ? `1.5px solid ${theme.palette.secondary.main}` : '1.5px solid #e5e7eb',
+  '&:after': {
+    content: '""',
+    position: 'absolute',
+    top: 2,
+    left: checked ? 18 : 2,
+    width: 18,
+    height: 18,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 4px rgba(30,41,59,0.10)',
+    transition: 'left 0.2s',
+    border: checked ? `2px solid ${theme.palette.secondary.main}` : '2px solid #e5e7eb',
+  },
+}));
+
+const steps = ['Processing', "Add Names", "Assign Items", "Summary"];
+const StepperBar = styled(Box)(({ theme }) => ({
+  width: '100vw',
+  maxWidth: 440,
+  margin: '0 auto',
+  padding: theme.spacing(0, 2),
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: theme.spacing(1),
+  marginBottom: theme.spacing(2),
+}));
+const StepDot = styled('span')<{active: boolean}>(({ theme, active }) => ({
+  width: active ? 18 : 10,
+  height: active ? 18 : 10,
+  borderRadius: '50%',
+  background: active ? theme.palette.primary.main : theme.palette.divider,
+  border: active ? `2px solid ${theme.palette.secondary.main}` : 'none',
+  transition: 'all 0.2s',
+  display: 'inline-block',
+}));
+
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -519,12 +574,25 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setActiveStep(step);
   };
 
+  const getStepIndex = () => {
+    switch (currentStep) {
+      case 'loading': return 0;
+      case 'participants': return 1;
+      case 'assignments': return 2;
+      case 'summary': return 3;
+      default: return 0;
+    }
+  };
+
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-        <Typography variant="h6" style={{ marginLeft: 16 }}>
+      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: theme.palette.background.default }}>
+        <CircularProgress size={64} thickness={5} sx={{ color: theme.palette.secondary.main }} />
+        <Typography variant="h6" mt={4} color="text.secondary" fontWeight={600}>
           Processing receipt...
+        </Typography>
+        <Typography variant="body2" mt={2} color="text.secondary" align="center">
+          This may take a few seconds depending on receipt size.
         </Typography>
       </Box>
     );
@@ -558,14 +626,41 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
             <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
           </ScallopEdge>
-          <ResponsiveReceiptCard sx={{ background: theme.palette.background.paper }}>
+          <ResponsiveReceiptCard sx={{ background: theme.palette.background.paper, p: { xs: 4, sm: 8 } }}>
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 1 }}>
               <GroupIcon sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 1 }} />
-              <Box sx={{ width: 48, height: 4, borderRadius: 2, background: theme.palette.primary.main, mb: 2 }} />
-              <Typography variant="h5" fontWeight={700} align="center" gutterBottom sx={{ color: theme.palette.primary.main, mb: 1, letterSpacing: 1 }}>
+              <Box sx={{ width: 48, height: 4, borderRadius: 2, background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`, mb: 2 }} />
+              <Typography 
+                variant="h5" 
+                fontWeight={700} 
+                align="center" 
+                gutterBottom 
+                sx={{ 
+                  background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  mb: 1, 
+                  letterSpacing: 1, 
+                  fontSize: { xs: '2rem', sm: '2.5rem' },
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  position: 'relative',
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: -8,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '60%',
+                    height: 3,
+                    background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                    borderRadius: 3,
+                    opacity: 0.5
+                  }
+                }}
+              >
                 Who's Splitting the Bill?
               </Typography>
-              <Typography variant="body1" color="text.secondary" align="center" mb={2}>
+              <Typography variant="body1" color="text.secondary" align="center" mb={2} sx={{ fontSize: '1.2rem' }}>
                 Add the names of everyone splitting the bill. You can add or remove names as needed.
               </Typography>
             </Box>
@@ -618,7 +713,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   Add
                 </Button>
               </Box>
-              <Box sx={{ mt: 2, width: '100%', display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ mt: 2, width: '100%', display: 'flex', flexWrap: 'wrap', gap: 2, rowGap: 2, columnGap: 4 }}>
                 {participants.map((participant, index) => (
                   <Grow in key={participant + chipKey}>
                     <Chip
@@ -629,9 +724,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         color: '#fff',
                         fontWeight: 600,
                         fontSize: '1rem',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 2,
+                        px: 2,
+                        py: 1,
+                        borderRadius: '999px',
                         boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
                         '& .MuiChip-deleteIcon': {
                           color: theme.palette.secondary.light,
@@ -651,8 +746,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 width: '100%',
                 borderRadius: 3,
                 fontWeight: 700,
-                fontSize: '1.08rem',
-                py: 1.5,
+                fontSize: '1.15rem',
+                py: 2,
                 background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                 color: '#fff',
                 boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
@@ -694,16 +789,21 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         overflowX: 'hidden',
         boxSizing: 'border-box',
       }}>
+        <StepperBar>
+          {steps.map((label, idx) => (
+            <StepDot key={label} active={getStepIndex() === idx} />
+          ))}
+        </StepperBar>
         <CarouselContainer>
-          <VirtualizedSwipeableViews
+          <SwipeableViews
             index={activeStep}
             onChangeIndex={setActiveStep}
             enableMouseEvents
             resistance
             style={{ width: '100%', maxWidth: 440 }}
             containerStyle={{ overflow: 'visible', width: '100%', maxWidth: 440 }}
-            slideRenderer={({ index, key }) => {
-              const participant = participants[index];
+          >
+            {participants.map((participant, index) => {
               const handleSelectAll = () => {
                 const updatedItems = items.map(item => ({
                   ...item,
@@ -712,33 +812,73 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 setItems(updatedItems);
               };
               return (
-                <ReceiptScallopedWrapper key={key}>
+                <ReceiptScallopedWrapper key={participant}>
                   <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
                     <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
                   </ScallopEdge>
                   <ResponsiveReceiptCard sx={{ background: theme.palette.background.paper }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="h6" fontWeight={700} sx={{ color: theme.palette.primary.main, fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: 1, fontSize: { xs: 'clamp(1.05rem, 3vw, 1.25rem)', sm: '1.2rem', md: '1.25rem' } }}>
+                      <Typography 
+                        variant="h6" 
+                        fontWeight={700} 
+                        sx={{ 
+                          background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          fontFamily: 'Inter, system-ui, sans-serif', 
+                          letterSpacing: 1, 
+                          fontSize: { xs: 'clamp(1.05rem, 3vw, 1.25rem)', sm: '1.2rem', md: '1.25rem' },
+                          textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          position: 'relative',
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            bottom: -4,
+                            left: 0,
+                            width: '100%',
+                            height: 2,
+                            background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                            borderRadius: 2,
+                            opacity: 0.5
+                          }
+                        }}
+                      >
                         {participant}
                       </Typography>
-                      <SelectAllButton onClick={handleSelectAll} size="small" sx={{ color: theme.palette.secondary.main, background: theme.palette.secondary.light + '22', '&:hover': { background: theme.palette.secondary.main, color: '#fff' } }}>Select All</SelectAllButton>
+                      <SelectAllButton
+                        onClick={handleSelectAll}
+                        size="small"
+                        sx={{
+                          background: theme.palette.secondary.light,
+                          color: theme.palette.secondary.main,
+                          borderRadius: 9999,
+                          px: 2.5,
+                          py: 0.5,
+                          fontWeight: 700,
+                          fontSize: '0.97rem',
+                          boxShadow: 'none',
+                          letterSpacing: 0.2,
+                          '&:hover': { background: theme.palette.secondary.main, color: '#fff' },
+                        }}
+                      >
+                        Select All
+                      </SelectAllButton>
                     </Box>
                     <ReceiptTable>
                       {items.map((item, itemIndex) => (
-                        <ReceiptRow key={itemIndex} sx={{ opacity: 1, fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, borderBottom: `1px dashed ${theme.palette.divider}` }}>
+                        <ReceiptRow key={itemIndex} sx={{ opacity: 1, fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, borderBottom: `1.5px solid ${theme.palette.divider}` }}>
                           <Box sx={{ fontWeight: item.shared_by?.includes(participant) ? 600 : 400, color: theme.palette.text.primary }}>{item.item}</Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography sx={{ minWidth: 60, textAlign: 'right', fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, color: theme.palette.text.primary }}>
                               {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
                             </Typography>
-                            <ItemCheckbox
+                            <PillToggle
                               checked={item.shared_by?.includes(participant) || false}
-                              onChange={() => toggleItemAssignment(itemIndex, participant)}
-                              color="secondary"
-                              sx={{
-                                color: theme.palette.secondary.main,
-                                '&.Mui-checked': { color: theme.palette.secondary.main },
-                              }}
+                              onClick={() => toggleItemAssignment(itemIndex, participant)}
+                              role="checkbox"
+                              aria-checked={item.shared_by?.includes(participant) || false}
+                              tabIndex={0}
+                              sx={{ ml: 2 }}
                             />
                           </Box>
                         </ReceiptRow>
@@ -750,9 +890,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   </ScallopEdge>
                 </ReceiptScallopedWrapper>
               );
-            }}
-            slideCount={participants.length}
-          />
+            })}
+          </SwipeableViews>
         </CarouselContainer>
         <Box display="flex" justifyContent="center" mt={3}>
           <Button
@@ -798,24 +937,56 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         overflowX: 'hidden',
         boxSizing: 'border-box',
       }}>
+        <StepperBar>
+          {steps.map((label, idx) => (
+            <StepDot key={label} active={getStepIndex() === idx} />
+          ))}
+        </StepperBar>
         <ReceiptScallopedWrapper>
           <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
             <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
           </ScallopEdge>
-          <ResponsiveReceiptCard sx={{ background: theme.palette.background.paper }}>
-            <Typography variant="h4" align="center" fontWeight={700} sx={{ color: theme.palette.primary.main, mb: 2, fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: 1, fontSize: { xs: 'clamp(1.2rem, 4vw, 1.7rem)', sm: '1.7rem' } }}>
+          <ResponsiveReceiptCard sx={{ background: theme.palette.background.paper, boxShadow: theme.shadows[6], borderRadius: 6, p: { xs: 4, sm: 8 } }}>
+            <Typography 
+              variant="h4" 
+              align="center" 
+              fontWeight={700} 
+              sx={{ 
+                background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 2, 
+                fontFamily: 'Inter, system-ui, sans-serif', 
+                letterSpacing: 1, 
+                fontSize: { xs: 'clamp(1.2rem, 4vw, 1.7rem)', sm: '1.7rem' },
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                position: 'relative',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: -8,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '60%',
+                  height: 3,
+                  background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  borderRadius: 3,
+                  opacity: 0.5
+                }
+              }}
+            >
               Splitty
             </Typography>
             <ReceiptTable>
               {Object.entries(userTotals).map(([user, amount]) => (
-                <ReceiptRow key={user} sx={{ fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, color: theme.palette.text.primary, borderBottom: `1px dashed ${theme.palette.divider}` }}>
+                <ReceiptRow key={user} sx={{ fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, color: theme.palette.text.primary, borderBottom: `1.5px solid ${theme.palette.divider}` }}>
                   <Box>{user}</Box>
-                  <Box>{targetCurrency} {amount.toFixed(2)}</Box>
+                  <Box>{targetCurrency} {formatCurrency(amount, targetCurrency)}</Box>
                 </ReceiptRow>
               ))}
               <ReceiptTotalRow sx={{ color: theme.palette.primary.main }}>
                 <Box>Total</Box>
-                <Box>{targetCurrency} {total.toFixed(2)}</Box>
+                <Box>{targetCurrency} {formatCurrency(total, targetCurrency)}</Box>
               </ReceiptTotalRow>
             </ReceiptTable>
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
