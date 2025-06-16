@@ -33,6 +33,7 @@ import { API_ENDPOINTS } from '../config/api';
 import Switch from '@mui/material/Switch';
 import GroupIcon from '@mui/icons-material/Group';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import CurrencySelector from './CurrencySelector';
 
 interface ReceiptItem {
   item: string;
@@ -398,33 +399,6 @@ const formatCurrency = (amount: number, currency: string) => {
   }).format(amount);
 };
 
-const PillToggle = styled('span')<{checked: boolean}>(({ theme, checked }) => ({
-  display: 'inline-block',
-  width: 36,
-  height: 22,
-  borderRadius: 9999,
-  background: checked ? theme.palette.secondary.main : '#e5e7eb',
-  position: 'relative',
-  transition: 'background 0.2s',
-  cursor: 'pointer',
-  verticalAlign: 'middle',
-  boxShadow: checked ? '0 2px 8px rgba(37,99,235,0.10)' : 'none',
-  border: checked ? `1.5px solid ${theme.palette.secondary.main}` : '1.5px solid #e5e7eb',
-  '&:after': {
-    content: '""',
-    position: 'absolute',
-    top: 2,
-    left: checked ? 18 : 2,
-    width: 18,
-    height: 18,
-    borderRadius: '50%',
-    background: '#fff',
-    boxShadow: '0 1px 4px rgba(30,41,59,0.10)',
-    transition: 'left 0.2s',
-    border: checked ? `2px solid ${theme.palette.secondary.main}` : '2px solid #e5e7eb',
-  },
-}));
-
 const steps = ['Processing', "Add Names", "Assign Items", "Summary"];
 const StepperBar = styled(Box)(({ theme }) => ({
   width: '100vw',
@@ -447,6 +421,20 @@ const StepDot = styled('span')<{active: boolean}>(({ theme, active }) => ({
   display: 'inline-block',
 }));
 
+// Remove the PillToggle styled component and add a new styled Checkbox
+const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
+  padding: 8,
+  '& .MuiSvgIcon-root': {
+    fontSize: 28,
+    color: theme.palette.primary.main,
+  },
+  '&.Mui-checked': {
+    '& .MuiSvgIcon-root': {
+      color: theme.palette.secondary.main,
+    },
+  },
+}));
+
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -456,13 +444,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [showSummary, setShowSummary] = useState(false);
   const [userTotals, setUserTotals] = useState<Record<string, number>>({});
   const [sourceCurrency, setSourceCurrency] = useState('');
-  const [targetCurrency, setTargetCurrency] = useState('');
-  const [currentStep, setCurrentStep] = useState<'loading' | 'participants' | 'assignments' | 'summary'>('loading');
+  const [targetCurrency, setTargetCurrency] = useState('USD');
+  const [currentStep, setCurrentStep] = useState<'loading' | 'currency' | 'participants' | 'assignments' | 'summary'>('loading');
   const [activeStep, setActiveStep] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [inputError, setInputError] = useState(false);
-  const [chipKey, setChipKey] = useState(0); // for animation
+  const [chipKey, setChipKey] = useState(0);
 
   // Process receipt when component mounts
   React.useEffect(() => {
@@ -479,7 +467,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         },
         body: JSON.stringify({
           image: imageData,
-          target_currency: 'USD',
+          target_currency: targetCurrency,
         }),
       });
 
@@ -489,6 +477,36 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         setItems(data.items);
         setSourceCurrency(data.source_currency);
         setTargetCurrency(data.target_currency);
+        setCurrentStep('currency');
+      } else {
+        setError(data.error || 'Failed to process receipt');
+      }
+    } catch (err) {
+      setError('Failed to process receipt');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCurrencyChange = async (newCurrency: string) => {
+    setTargetCurrency(newCurrency);
+    try {
+      setLoading(true);
+      const response = await fetch(API_ENDPOINTS.processReceipt, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imageData,
+          target_currency: newCurrency,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setItems(data.items);
         setCurrentStep('participants');
       } else {
         setError(data.error || 'Failed to process receipt');
@@ -577,22 +595,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const getStepIndex = () => {
     switch (currentStep) {
       case 'loading': return 0;
-      case 'participants': return 1;
-      case 'assignments': return 2;
-      case 'summary': return 3;
+      case 'currency': return 1;
+      case 'participants': return 2;
+      case 'assignments': return 3;
+      case 'summary': return 4;
       default: return 0;
     }
   };
 
   if (loading) {
     return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: theme.palette.background.default }}>
-        <CircularProgress size={64} thickness={5} sx={{ color: theme.palette.secondary.main }} />
-        <Typography variant="h6" mt={4} color="text.secondary" fontWeight={600}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" sx={{ mt: 3, color: 'text.secondary' }}>
           Processing receipt...
-        </Typography>
-        <Typography variant="body2" mt={2} color="text.secondary" align="center">
-          This may take a few seconds depending on receipt size.
         </Typography>
       </Box>
     );
@@ -600,11 +616,33 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   if (error) {
     return (
-      <StyledPaper>
-        <Typography color="error" variant="h6">
-          Error: {error}
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', p: 3 }}>
+        <Typography variant="h6" color="error" sx={{ mb: 2 }}>
+          Error
         </Typography>
-      </StyledPaper>
+        <Typography color="text.secondary" align="center">
+          {error}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => onComplete?.({})}
+          sx={{ mt: 3 }}
+        >
+          Try Again
+        </Button>
+      </Box>
+    );
+  }
+
+  if (currentStep === 'currency') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', p: 3 }}>
+        <CurrencySelector
+          sourceCurrency={sourceCurrency}
+          targetCurrency={targetCurrency}
+          onTargetCurrencyChange={handleCurrencyChange}
+        />
+      </Box>
     );
   }
 
@@ -872,13 +910,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                             <Typography sx={{ minWidth: 60, textAlign: 'right', fontSize: { xs: 'clamp(0.95rem, 2.5vw, 1.05rem)', sm: '1.05rem' }, color: theme.palette.text.primary }}>
                               {targetCurrency} {item.converted_total?.toFixed(2) || item.total.toFixed(2)}
                             </Typography>
-                            <PillToggle
+                            <StyledCheckbox
                               checked={item.shared_by?.includes(participant) || false}
-                              onClick={() => toggleItemAssignment(itemIndex, participant)}
-                              role="checkbox"
-                              aria-checked={item.shared_by?.includes(participant) || false}
-                              tabIndex={0}
-                              sx={{ ml: 2 }}
+                              onChange={() => toggleItemAssignment(itemIndex, participant)}
+                              sx={{ ml: 1 }}
                             />
                           </Box>
                         </ReceiptRow>

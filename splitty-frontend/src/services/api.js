@@ -1,7 +1,7 @@
 // Use environment variable or default to localhost
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
-export const processReceipt = async (imageFile) => {
+export const processReceipt = async (imageFile, targetCurrency = 'USD') => {
     try {
         // Convert image to base64
         const base64Image = await convertToBase64(imageFile);
@@ -13,7 +13,7 @@ export const processReceipt = async (imageFile) => {
             },
             body: JSON.stringify({
                 image: base64Image,
-                target_currency: 'USD'
+                target_currency: targetCurrency
             })
         });
 
