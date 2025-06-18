@@ -922,200 +922,284 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         background: theme.palette.background.default,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
         fontFamily: 'Inter, system-ui, sans-serif',
         width: '100vw',
         overflowX: 'hidden',
         boxSizing: 'border-box',
-        paddingBottom: { xs: '100px', sm: '20px' }, // Extra padding for sticky button
       }}>
         <StepperBar>
           {steps.map((label, idx) => (
             <StepDot key={label} active={getStepIndex() === idx} />
           ))}
         </StepperBar>
-        <CarouselContainer>
-          <SwipeableViews
-            index={activeStep}
-            onChangeIndex={setActiveStep}
-            enableMouseEvents
-            resistance
-            style={{ width: '100%', maxWidth: 440 }}
-            containerStyle={{ overflow: 'visible', width: '100%', maxWidth: 440 }}
-          >
-            {participants.map((participant, index) => {
-              const handleSelectAll = () => {
-                // Check if all items are already selected for this participant
+        
+        {/* Participant Indicator */}
+        {participants.length > 1 && (
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 1,
+            mb: 2,
+            px: 2,
+          }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+              {activeStep + 1} of {participants.length}:
+            </Typography>
+            <Typography variant="body1" sx={{ 
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              fontSize: '1rem',
+            }}>
+              {participants[activeStep]}
+            </Typography>
+          </Box>
+        )}
+        
+        {/* Scrollable Content Area */}
+        <Box sx={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingBottom: { xs: '100px', sm: '20px' }, // Space for sticky button
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          pt: 2,
+          position: 'relative', // For positioning navigation arrows
+        }}>
+          {/* Navigation Arrows */}
+          {participants.length > 1 && (
+            <>
+              <IconButton
+                onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
+                disabled={activeStep === 0}
+                sx={{
+                  position: 'absolute',
+                  left: { xs: 10, sm: 20 },
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 1001,
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    transform: 'translateY(-50%) scale(1.05)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.3,
+                    transform: 'translateY(-50%) scale(0.95)',
+                  },
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <KeyboardArrowLeft />
+              </IconButton>
+              <IconButton
+                onClick={() => setActiveStep(Math.min(participants.length - 1, activeStep + 1))}
+                disabled={activeStep === participants.length - 1}
+                sx={{
+                  position: 'absolute',
+                  right: { xs: 10, sm: 20 },
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 1001,
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    transform: 'translateY(-50%) scale(1.05)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.3,
+                    transform: 'translateY(-50%) scale(0.95)',
+                  },
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <KeyboardArrowRight />
+              </IconButton>
+            </>
+          )}
+          
+          <CarouselContainer>
+            <SwipeableViews
+              index={activeStep}
+              onChangeIndex={setActiveStep}
+              enableMouseEvents
+              disabled={false}
+              resistance
+              threshold={8}
+              hysteresis={0.4}
+              style={{ width: '100%', maxWidth: 440 }}
+              containerStyle={{ overflow: 'visible', width: '100%', maxWidth: 440 }}
+              slideStyle={{ overflow: 'visible' }}
+              springConfig={{
+                duration: '0.25s',
+                easeFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                delay: '0s',
+              }}
+            >
+              {participants.map((participant, index) => {
+                const handleSelectAll = () => {
+                  // Check if all items are already selected for this participant
+                  const allSelected = items.every(item => item.shared_by?.includes(participant));
+                  
+                  const updatedItems = items.map(item => {
+                    if (allSelected) {
+                      // Unselect all - remove participant from all items
+                      return {
+                        ...item,
+                        shared_by: (item.shared_by || []).filter(p => p !== participant)
+                      };
+                    } else {
+                      // Select all - add participant to all items
+                      return {
+                        ...item,
+                        shared_by: Array.from(new Set([...(item.shared_by || []), participant]))
+                      };
+                    }
+                  });
+                  setItems(updatedItems);
+                };
+
+                // Check if all items are selected for this participant
                 const allSelected = items.every(item => item.shared_by?.includes(participant));
                 
-                const updatedItems = items.map(item => {
-                  if (allSelected) {
-                    // Unselect all - remove participant from all items
-                    return {
-                      ...item,
-                      shared_by: (item.shared_by || []).filter(p => p !== participant)
-                    };
-                  } else {
-                    // Select all - add participant to all items
-                    return {
-                      ...item,
-                      shared_by: Array.from(new Set([...(item.shared_by || []), participant]))
-                    };
-                  }
-                });
-                setItems(updatedItems);
-              };
-
-              // Check if all items are selected for this participant
-              const allSelected = items.every(item => item.shared_by?.includes(participant));
-              
-              return (
-                <ReceiptScallopedWrapper key={participant}>
-                  <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
-                    <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
-                  </ScallopEdge>
-                  <ResponsiveReceiptCard sx={{ 
-                    background: theme.palette.background.paper,
-                    minHeight: { xs: 'calc(100vh - 200px)', sm: 'auto' }, // Use full screen height minus space for header/button
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}>
-                    {/* Improved Section Title */}
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      mb: 2,
-                      py: 1.5, // Top/bottom padding for visual separation
-                      flexShrink: 0, // Don't shrink this header
+                return (
+                  <ReceiptScallopedWrapper key={participant}>
+                    <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none">
+                      <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
+                    </ScallopEdge>
+                    <ResponsiveReceiptCard sx={{ 
+                      background: theme.palette.background.paper,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      maxHeight: 'none', // Remove height constraint
                     }}>
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          fontSize: '1.2rem',
-                          fontWeight: 600,
-                          background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          fontFamily: 'Inter, system-ui, sans-serif', 
-                          letterSpacing: 0.5,
-                          position: 'relative',
-                          '&::after': {
-                            content: '""',
-                            position: 'absolute',
-                            bottom: -6,
-                            left: 0,
-                            width: '100%',
-                            height: 2,
-                            background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                            borderRadius: 2,
-                            opacity: 0.3
-                          }
-                        }}
-                      >
-                        {participant}
-                      </Typography>
-                      <SelectAllButton
-                        onClick={handleSelectAll}
-                        size="small"
-                        sx={{
-                          background: theme.palette.secondary.light,
-                          color: theme.palette.secondary.main,
-                          borderRadius: 20,
-                          px: 2.5,
-                          py: 0.75,
-                          fontWeight: 600,
-                          fontSize: '0.85rem',
-                          boxShadow: 'none',
-                          letterSpacing: 0.2,
-                          '&:hover': { 
-                            background: theme.palette.secondary.main, 
-                            color: '#fff',
-                            transform: 'translateY(-1px)',
-                          },
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        {allSelected ? 'Unselect All' : 'Select All'}
-                      </SelectAllButton>
-                    </Box>
-                    
-                    {/* Items List with Full Screen Usage */}
-                    <ReceiptTable sx={{ 
-                      flex: 1, // Take up remaining space
-                      overflowY: 'auto',
-                      '&::-webkit-scrollbar': {
-                        width: '4px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: '#f1f1f1',
-                        borderRadius: '2px',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: '#c1c1c1',
-                        borderRadius: '2px',
-                      },
-                    }}>
-                      {items.map((item, itemIndex) => (
-                        <ReceiptRow 
-                          key={itemIndex} 
+                      {/* Header Section - Fixed */}
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        mb: 2,
+                        py: 1.5,
+                        flexShrink: 0,
+                      }}>
+                        <Typography 
+                          variant="h6" 
                           sx={{ 
-                            minHeight: '48px', // Ensure tappable height
-                            py: 1.5,
-                            px: 0.5,
-                            fontSize: '1rem',
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                            cursor: 'pointer',
-                            borderRadius: '8px',
-                            mb: 0.5,
-                            '&:hover': {
-                              backgroundColor: theme.palette.action.hover,
-                            },
-                            '&:last-child': {
-                              borderBottom: 'none',
-                              mb: 0,
+                            fontSize: '1.2rem',
+                            fontWeight: 600,
+                            background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            fontFamily: 'Inter, system-ui, sans-serif', 
+                            letterSpacing: 0.5,
+                            position: 'relative',
+                            '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              bottom: -6,
+                              left: 0,
+                              width: '100%',
+                              height: 2,
+                              background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                              borderRadius: 2,
+                              opacity: 0.3
                             }
                           }}
-                          onClick={() => toggleItemAssignment(itemIndex, participant)}
                         >
-                          <Box sx={{ 
-                            fontWeight: item.shared_by?.includes(participant) ? 600 : 400, 
-                            color: theme.palette.text.primary,
-                            flex: 1,
-                            pr: 2,
-                          }}>
-                            {item.item}
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography sx={{ 
-                              minWidth: 'auto',
-                              textAlign: 'right', 
+                          {participant}
+                        </Typography>
+                        <SelectAllButton 
+                          onClick={handleSelectAll}
+                          sx={{
+                            background: allSelected ? theme.palette.secondary.light : '#f3f4f6',
+                            color: allSelected ? '#fff' : theme.palette.primary.main,
+                            '&:hover': {
+                              background: allSelected ? theme.palette.secondary.main : theme.palette.primary.light,
+                              color: '#fff',
+                            },
+                          }}
+                        >
+                          {allSelected ? 'Unselect All' : 'Select All'}
+                        </SelectAllButton>
+                      </Box>
+
+                      {/* Scrollable Items List */}
+                      <ReceiptTable sx={{ 
+                        flex: 1,
+                        minHeight: 0, // Allow shrinking
+                        maxHeight: 'none', // Remove height constraint
+                        overflowY: 'visible', // Let parent handle scrolling
+                        '&::-webkit-scrollbar': {
+                          display: 'none', // Hide scrollbar since parent will handle it
+                        },
+                      }}>
+                        {items.map((item, itemIndex) => (
+                          <ReceiptRow 
+                            key={itemIndex} 
+                            sx={{ 
+                              minHeight: '48px',
+                              py: 1.5,
+                              px: 0.5,
                               fontSize: '1rem',
-                              fontWeight: 600,
+                              borderBottom: `1px solid ${theme.palette.divider}`,
+                              cursor: 'pointer',
+                              borderRadius: '8px',
+                              mb: 0.5,
+                              '&:hover': {
+                                backgroundColor: theme.palette.action.hover,
+                              },
+                              '&:last-child': {
+                                borderBottom: 'none',
+                                mb: 0,
+                              }
+                            }}
+                            onClick={() => toggleItemAssignment(itemIndex, participant)}
+                          >
+                            <Box sx={{ 
+                              fontWeight: item.shared_by?.includes(participant) ? 600 : 400, 
                               color: theme.palette.text.primary,
-                              fontFamily: 'Inter, system-ui, sans-serif',
+                              flex: 1,
+                              pr: 2,
                             }}>
-                              {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
-                            </Typography>
-                            <StyledCheckbox
-                              checked={item.shared_by?.includes(participant) || false}
-                              onChange={() => toggleItemAssignment(itemIndex, participant)}
-                              sx={{ ml: 0.5 }}
-                            />
-                          </Box>
-                        </ReceiptRow>
-                      ))}
-                    </ReceiptTable>
-                  </ResponsiveReceiptCard>
-                  <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none" style={{ transform: 'rotate(180deg)' }}>
-                    <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
-                  </ScallopEdge>
-                </ReceiptScallopedWrapper>
-              );
-            })}
-          </SwipeableViews>
-        </CarouselContainer>
+                              {item.item}
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography sx={{ 
+                                minWidth: 'auto',
+                                textAlign: 'right', 
+                                fontSize: '1rem',
+                                fontWeight: 600,
+                                color: theme.palette.text.primary,
+                                fontFamily: 'Inter, system-ui, sans-serif',
+                              }}>
+                                {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
+                              </Typography>
+                              <StyledCheckbox
+                                checked={item.shared_by?.includes(participant) || false}
+                                onChange={() => toggleItemAssignment(itemIndex, participant)}
+                                sx={{ ml: 0.5 }}
+                              />
+                            </Box>
+                          </ReceiptRow>
+                        ))}
+                      </ReceiptTable>
+                    </ResponsiveReceiptCard>
+                    <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none" style={{ transform: 'rotate(180deg)' }}>
+                      <path d="M0,8 Q12,16 25,8 T50,8 T75,8 T100,8 T125,8 T150,8 T175,8 T200,8 T225,8 T250,8 T275,8 T300,8 T325,8 T350,8 T375,8 T400,8 V16 H0Z" fill={theme.palette.background.paper} />
+                    </ScallopEdge>
+                  </ReceiptScallopedWrapper>
+                );
+              })}
+            </SwipeableViews>
+          </CarouselContainer>
+        </Box>
         
         {/* Sticky Calculate Split Button */}
         <Box sx={{
@@ -1127,6 +1211,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           display: 'flex',
           justifyContent: 'center',
           mt: { xs: 0, sm: 3 },
+          mb: { xs: 0, sm: 2 },
+          px: { xs: 0, sm: 2 },
         }}>
           <Button
             variant="contained"
