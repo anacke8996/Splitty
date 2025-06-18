@@ -152,7 +152,7 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
             labelId="target-currency-label"
             value={targetCurrency}
             label="Target Currency"
-            onChange={(e) => onTargetCurrencyChange(e.target.value)}
+            onChange={(e) => onTargetCurrencyChange(e.target.value as string)}
             IconComponent={KeyboardArrowDownIcon}
           >
             {commonCurrencies.map((currency) => (

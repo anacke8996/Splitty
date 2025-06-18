@@ -1,5 +1,16 @@
 import { createTheme } from '@mui/material/styles';
 
+// Extend the Material-UI theme interface
+declare module '@mui/material/styles' {
+  interface Palette {
+    purple: Palette['primary'];
+  }
+
+  interface PaletteOptions {
+    purple?: PaletteOptions['primary'];
+  }
+}
+
 const theme = createTheme({
   palette: {
     primary: {

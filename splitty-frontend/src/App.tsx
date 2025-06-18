@@ -146,7 +146,6 @@ function App() {
           <label htmlFor="receipt-upload">
             <UploadButton
               variant="contained"
-              component="span"
               size="large"
               startIcon={<ReceiptIcon />}
             >
