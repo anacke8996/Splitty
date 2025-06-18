@@ -30,8 +30,8 @@ export const processReceipt = async (
   targetCurrency: string = 'USD'
 ): Promise<ProcessReceiptResponse> => {
   const response = await axios.post(`${API_BASE_URL}/process-receipt`, {
-    imageData,
-    targetCurrency,
+    image: imageData,
+    target_currency: targetCurrency,
   });
   return response.data;
 };
