@@ -446,12 +446,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [userTotals, setUserTotals] = useState<Record<string, number>>({});
   const [sourceCurrency, setSourceCurrency] = useState('');
   const [targetCurrency, setTargetCurrency] = useState('USD');
-  const [currentStep, setCurrentStep] = useState<'loading' | 'currency' | 'participants' | 'assignments' | 'summary'>('loading');
+  const [currentStep, setCurrentStep] = useState<'loading' | 'currency' | 'participants' | 'assignments' | 'confirmation' | 'summary'>('loading');
   const [activeStep, setActiveStep] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [inputError, setInputError] = useState(false);
   const [chipKey, setChipKey] = useState(0);
+  const [unassignedItems, setUnassignedItems] = useState<ReceiptItem[]>([]);
 
   // Process receipt when component mounts
   React.useEffect(() => {
@@ -582,7 +583,34 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setItems(updatedItems);
   };
 
+  // Helper function to get unassigned items
+  const getUnassignedItems = () => {
+    return items.filter(item => !item.shared_by || item.shared_by.length === 0);
+  };
+
+  // Helper function to check if there are unassigned items
+  const hasUnassignedItems = () => {
+    return getUnassignedItems().length > 0;
+  };
+
   const calculateBill = async () => {
+    try {
+      // Check for unassigned items first
+      const unassigned = getUnassignedItems();
+      if (unassigned.length > 0) {
+        setUnassignedItems(unassigned);
+        setCurrentStep('confirmation');
+        return;
+      }
+
+      await processBillSplit();
+    } catch (error) {
+      console.error('Error calculating bill:', error);
+      setError('Failed to calculate bill split');
+    }
+  };
+
+  const processBillSplit = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.splitBill, {
         method: 'POST',
@@ -627,6 +655,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       case 'currency': return 1;
       case 'participants': return 2;
       case 'assignments': return 3;
+      case 'confirmation': return 3;
       case 'summary': return 4;
       default: return 0;
     }
@@ -1237,7 +1266,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               </Typography>
                               <StyledCheckbox
                                 checked={item.shared_by?.includes(participant) || false}
-                                onChange={() => toggleItemAssignment(itemIndex, participant)}
+                                onChange={(e) => {
+                                  e.stopPropagation(); // Prevent event bubbling to parent row
+                                  toggleItemAssignment(itemIndex, participant);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent event bubbling to parent row
+                                }}
                                 sx={{ ml: 0.5 }}
                               />
                             </Box>
@@ -1255,6 +1290,43 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           </CarouselContainer>
         </Box>
         
+        {/* Unassigned Items Warning */}
+        {hasUnassignedItems() && (
+          <Box sx={{
+            position: { xs: 'fixed', sm: 'static' },
+            bottom: { xs: 90, sm: 'auto' },
+            left: { xs: 20, sm: 'auto' },
+            right: { xs: 20, sm: 'auto' },
+            zIndex: 1000,
+            display: 'flex',
+            justifyContent: 'center',
+            px: { xs: 0, sm: 2 },
+            mb: { xs: 0, sm: 2 },
+          }}>
+            <Box sx={{
+              background: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              maxWidth: '400px',
+              width: '100%',
+            }}>
+              <Typography sx={{ fontSize: '1.2rem' }}>⚠️</Typography>
+              <Typography sx={{
+                fontSize: '0.9rem',
+                color: '#856404',
+                fontWeight: 500,
+              }}>
+                {getUnassignedItems().length} item{getUnassignedItems().length > 1 ? 's' : ''} not assigned to anyone
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* Sticky Navigation Buttons */}
         <Box sx={{
           position: { xs: 'fixed', sm: 'static' },
@@ -1330,6 +1402,198 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           >
             Calculate Split
           </Button>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (currentStep === 'confirmation') {
+    const getCurrencySymbol = (currencyCode: string) => {
+      const symbols: Record<string, string> = {
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'JPY': '¥',
+        'CAD': 'C$',
+        'AUD': 'A$',
+        'CHF': 'CHF',
+        'CNY': '¥',
+        'SEK': 'kr',
+        'NOK': 'kr',
+        'MXN': '$',
+        'NZD': 'NZ$',
+        'SGD': 'S$',
+        'HKD': 'HK$',
+        'INR': '₹',
+        'KRW': '₩',
+        'BRL': 'R$',
+        'ZAR': 'R',
+        'RUB': '₽',
+        'TRY': '₺',
+      };
+      return symbols[currencyCode] || currencyCode;
+    };
+
+    return (
+      <Box sx={{
+        minHeight: '100vh',
+        background: theme.palette.background.default,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        width: '100vw',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
+        padding: { xs: 2, sm: 3 },
+      }}>
+        <Box sx={{
+          background: '#fff',
+          borderRadius: '1.5rem',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+          maxWidth: '480px',
+          width: '100%',
+          padding: { xs: 3, sm: 4 },
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}>
+          <Typography 
+            variant="h5" 
+            sx={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              lineHeight: 1.2,
+              textAlign: 'center',
+              color: theme.palette.text.primary,
+              mb: 2,
+            }}
+          >
+            Items Not Assigned
+          </Typography>
+          
+          <Typography 
+            variant="body1" 
+            sx={{
+              color: theme.palette.text.secondary,
+              lineHeight: 1.6,
+              textAlign: 'center',
+              mb: 3,
+              fontSize: '0.95rem',
+            }}
+          >
+            The following items won't be included in the split:
+          </Typography>
+
+          {/* Unassigned Items List */}
+          <Box sx={{
+            width: '100%',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            mb: 3,
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '12px',
+          }}>
+            {unassignedItems.map((item, index) => (
+              <Box key={index} sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                backgroundColor: '#f8f9fa',
+                mb: 1,
+                '&:last-child': { mb: 0 },
+              }}>
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
+                  {item.item}{item.qty > 1 ? ` (x ${item.qty})` : ''}
+                </Typography>
+                <Typography sx={{ 
+                  fontWeight: 600, 
+                  fontSize: '0.9rem',
+                  color: theme.palette.text.secondary,
+                }}>
+                  {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          <Typography 
+            variant="body2" 
+            sx={{
+              color: theme.palette.text.secondary,
+              lineHeight: 1.6,
+              textAlign: 'center',
+              mb: 4,
+              fontSize: '0.85rem',
+            }}
+          >
+            Are you sure you want to exclude these items from the split?
+          </Typography>
+
+          {/* Navigation Buttons */}
+          <Box sx={{ 
+            width: '100%', 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', sm: 'row' },
+          }}>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              sx={{
+                flex: 1,
+                borderRadius: '12px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                padding: '16px 24px',
+                border: `2px solid ${theme.palette.divider}`,
+                color: theme.palette.text.secondary,
+                textTransform: 'none',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  border: `2px solid ${theme.palette.primary.main}`,
+                  color: theme.palette.primary.main,
+                  transform: 'translateY(-1px)',
+                },
+              }}
+              onClick={() => setCurrentStep('assignments')}
+            >
+              Go Back & Assign
+            </Button>
+
+            <Button
+              variant="contained"
+              sx={{
+                flex: 1,
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                padding: '16px 24px',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                color: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                textTransform: 'none',
+                letterSpacing: '0.5px',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+              onClick={() => processBillSplit()}
+              size="large"
+            >
+              Continue Without These Items
+            </Button>
+          </Box>
         </Box>
       </Box>
     );
@@ -1482,6 +1746,60 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 </ReceiptTotalRow>
               </ReceiptTable>
               
+              {/* Excluded Items Section */}
+              {unassignedItems.length > 0 && (
+                <Box sx={{ mt: 3, mb: 2 }}>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    align="center" 
+                    sx={{ 
+                      mb: 2, 
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                    }}
+                  >
+                    Items not included in split:
+                  </Typography>
+                  <Box sx={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    backgroundColor: '#f8f9fa',
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                  }}>
+                    {unassignedItems.map((item, index) => (
+                      <Box key={index} sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(255,255,255,0.5)',
+                        mb: 0.5,
+                        '&:last-child': { mb: 0 },
+                      }}>
+                        <Typography sx={{ 
+                          fontWeight: 500, 
+                          fontSize: '0.85rem',
+                          color: theme.palette.text.secondary,
+                        }}>
+                          {item.item}{item.qty > 1 ? ` (x ${item.qty})` : ''}
+                        </Typography>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: '0.85rem',
+                          color: theme.palette.text.secondary,
+                        }}>
+                          {formatCurrency(item.converted_total || item.total, targetCurrency)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2, mb: 3 }}>
                 All amounts are in {targetCurrency}. Split calculated successfully! ✓
               </Typography>
