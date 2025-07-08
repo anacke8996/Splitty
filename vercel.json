@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "splitty-frontend/.next",
+  "installCommand": "npm run install",
+  "framework": "nextjs",
+  "functions": {
+    "splitty-frontend/src/pages/api/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  }
+} 
