@@ -474,19 +474,19 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       const data = await response.json();
       
       if (data.success) {
-        // Convert new GPT-4o format to old format expected by component
+        // Convert new GPT format to component format (preserving original currency)
         const convertedItems = data.items.map((item: any) => ({
           item: item.name,
-          price: item.price_eur,
+          price: item.price,
           qty: item.quantity,
-          total: item.price_eur * item.quantity,
-          converted_price: item.price_eur,
-          converted_total: item.price_eur * item.quantity,
+          total: item.price * item.quantity,
+          converted_price: item.price,
+          converted_total: item.price * item.quantity,
         }));
         
         setItems(convertedItems);
-        setSourceCurrency('EUR'); // GPT-4o converts everything to EUR
-        setTargetCurrency('EUR');
+        setSourceCurrency(data.currency); // Use detected currency from receipt
+        setTargetCurrency(data.currency); // Default to same currency (no conversion)
         setCurrentStep('currency');
       } else {
         setError(data.error || 'Failed to process receipt');
@@ -501,14 +501,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const handleCurrencyChange = async (newCurrency: string) => {
     setTargetCurrency(newCurrency);
     
-    // Since GPT-4o already converts to EUR, we'll use the existing items
-    // and convert them to the new target currency if needed
-    if (newCurrency === 'EUR') {
+    // If same currency as original, no conversion needed
+    if (newCurrency === sourceCurrency) {
       setCurrentStep('participants');
       return;
     }
     
-    // Convert currency if different from EUR
+    // Convert currency if different from original
     try {
       setLoading(true);
       const response = await fetch(API_ENDPOINTS.convertCurrency, {
@@ -518,7 +517,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         },
         body: JSON.stringify({
           items: items,
-          fromCurrency: 'EUR',
+          fromCurrency: sourceCurrency,
           toCurrency: newCurrency,
         }),
       });

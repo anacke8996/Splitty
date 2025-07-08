@@ -136,11 +136,32 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
     }}>
       <Container>
         <GradientTitle>
-          Select Target Currency
+          Currency Options
         </GradientTitle>
         <InstructionText>
-          Receipt detected in {sourceCurrency}. Choose the currency you want to convert to:
+          Receipt processed in {sourceCurrency}. You can continue with {sourceCurrency} or convert to another currency:
         </InstructionText>
+        
+        {/* Helper text for quick splitting */}
+        {targetCurrency === sourceCurrency && (
+          <Box sx={{ 
+            background: '#f0f9ff',
+            border: '1px solid #0ea5e9',
+            borderRadius: 2,
+            p: 2,
+            mb: 3,
+            textAlign: 'center',
+          }}>
+            <Typography sx={{ 
+              fontSize: '0.875rem',
+              color: '#0c4a6e',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              fontWeight: 500,
+            }}>
+              💡 Want to split the bill quickly? Just click "Continue with {sourceCurrency}" below!
+            </Typography>
+          </Box>
+        )}
         <FormControl fullWidth>
           <InputLabel id="target-currency-label" sx={{ 
             fontFamily: 'Inter, system-ui, sans-serif',
@@ -170,14 +191,51 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
             ))}
           </StyledSelect>
         </FormControl>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <NextButton
-            variant="contained"
-            endIcon={<ArrowForwardIosIcon />}
-            onClick={() => onTargetCurrencyChange(targetCurrency)}
-          >
-            Continue
-          </NextButton>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'center',
+          gap: 2,
+          mt: 3,
+        }}>
+          {/* Quick continue with current currency */}
+          {targetCurrency === sourceCurrency && (
+            <Button
+              variant="contained"
+              size="large"
+              sx={{
+                background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                color: '#fff',
+                borderRadius: 12,
+                padding: '16px 32px',
+                fontWeight: 600,
+                fontSize: '1.125rem',
+                textTransform: 'none',
+                boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
+                  boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
+                  transform: 'translateY(-1px)',
+                },
+              }}
+              onClick={() => onTargetCurrencyChange(targetCurrency)}
+              endIcon={<ArrowForwardIosIcon />}
+            >
+              Continue with {sourceCurrency}
+            </Button>
+          )}
+          
+          {/* Convert to different currency */}
+          {targetCurrency !== sourceCurrency && (
+            <NextButton
+              variant="contained"
+              endIcon={<ArrowForwardIosIcon />}
+              onClick={() => onTargetCurrencyChange(targetCurrency)}
+            >
+              Convert to {targetCurrency}
+            </NextButton>
+          )}
         </Box>
       </Container>
     </Box>

@@ -22,12 +22,14 @@ export const config = {
 interface ReceiptItem {
   name: string;
   quantity: number;
-  price_eur: number;
+  price: number;
+  currency: string;
 }
 
 interface ProcessReceiptResponse {
   items: ReceiptItem[];
-  total_eur: number;
+  total: number;
+  currency: string;
   language: string;
 }
 
@@ -46,12 +48,14 @@ async function processReceiptWithGPT(imageBase64?: string, receiptText?: string)
 1. Extract each receipt item with:
    - English name
    - quantity (default 1 if missing)
-   - price per unit in EUR (not total)
-   - If the total price is listed (e.g. 3 items for €7.50), infer unit price as 7.50 / 3
+   - price per unit in ORIGINAL currency (not total)
+   - If the total price is listed (e.g. 3 items for $7.50), infer unit price as 7.50 / 3
 
-2. Calculate the total amount in EUR
+2. Detect the original currency of the receipt (USD, EUR, GBP, etc.)
 
-3. Detect the original language of the receipt
+3. Calculate the total amount in ORIGINAL currency
+
+4. Detect the original language of the receipt
 
 Return the information in this exact JSON format:
 {
@@ -59,18 +63,20 @@ Return the information in this exact JSON format:
     {
       "name": "item name in English",
       "quantity": 1,
-      "price_eur": 0.00
+      "price": 0.00,
+      "currency": "USD"
     }
   ],
-  "total_eur": 0.00,
+  "total": 0.00,
+  "currency": "USD",
   "language": "detected language"
 }
 
 Important:
 - Return ONLY valid JSON, no additional text
 - Translate item names to English
-- Convert prices to EUR if they're in a different currency
-- Use reasonable exchange rates for currency conversion
+- Keep prices in ORIGINAL currency - DO NOT convert currencies
+- Detect currency from symbols ($, €, £, ¥, etc.) or context
 - If quantity is not specified, default to 1
 - Always calculate unit price, not total price for items
 - Be precise with decimal places for prices`;
@@ -152,8 +158,12 @@ Important:
         throw new Error('Invalid response structure: items array missing');
       }
       
-      if (typeof parsedResponse.total_eur !== 'number') {
-        throw new Error('Invalid response structure: total_eur must be a number');
+      if (typeof parsedResponse.total !== 'number') {
+        throw new Error('Invalid response structure: total must be a number');
+      }
+      
+      if (typeof parsedResponse.currency !== 'string') {
+        throw new Error('Invalid response structure: currency must be a string');
       }
       
       if (typeof parsedResponse.language !== 'string') {
@@ -168,8 +178,11 @@ Important:
         if (typeof item.quantity !== 'number' || item.quantity < 0) {
           throw new Error('Invalid item structure: quantity must be a positive number');
         }
-        if (typeof item.price_eur !== 'number' || item.price_eur < 0) {
-          throw new Error('Invalid item structure: price_eur must be a positive number');
+        if (typeof item.price !== 'number' || item.price < 0) {
+          throw new Error('Invalid item structure: price must be a positive number');
+        }
+        if (typeof item.currency !== 'string') {
+          throw new Error('Invalid item structure: currency must be a string');
         }
       }
 
