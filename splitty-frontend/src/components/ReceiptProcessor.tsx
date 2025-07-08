@@ -1804,8 +1804,38 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 All amounts are in {targetCurrency}. Split calculated successfully! ✓
               </Typography>
               
-              {/* Enhanced Done Button */}
-              <Box display="flex" justifyContent="center" mt={3}>
+              {/* Buttons Container */}
+              <Box display="flex" justifyContent="space-between" alignItems="center" mt={3} gap={2}>
+                {/* Back Button */}
+                <Button
+                  variant="outlined"
+                  startIcon={<ArrowBackIcon />}
+                  onClick={() => {
+                    setCurrentStep('assignments');
+                  }}
+                  sx={{
+                    borderRadius: 16,
+                    fontWeight: 600,
+                    px: 4,
+                    py: 2,
+                    fontSize: { xs: 'clamp(0.9rem, 2.5vw, 1rem)', sm: '1rem' },
+                    textTransform: 'none',
+                    letterSpacing: '0.5px',
+                    borderColor: theme.palette.primary.main,
+                    color: theme.palette.primary.main,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      borderColor: theme.palette.primary.dark,
+                      color: theme.palette.primary.dark,
+                      backgroundColor: 'rgba(59, 130, 246, 0.04)',
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
+                >
+                  Back
+                </Button>
+
+                {/* Complete Split Button */}
                 <Button
                   variant="contained"
                   startIcon={
