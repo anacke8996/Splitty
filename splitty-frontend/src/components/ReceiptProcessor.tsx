@@ -29,6 +29,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { API_ENDPOINTS } from '../config/api';
 import Switch from '@mui/material/Switch';
 import GroupIcon from '@mui/icons-material/Group';
@@ -466,17 +467,26 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          image: imageData,
-          target_currency: targetCurrency,
+          imageBase64: imageData,
         }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setItems(data.items);
-        setSourceCurrency(data.source_currency);
-        setTargetCurrency(data.target_currency);
+        // Convert new GPT-4o format to old format expected by component
+        const convertedItems = data.items.map((item: any) => ({
+          item: item.name,
+          price: item.price_eur,
+          qty: item.quantity,
+          total: item.price_eur * item.quantity,
+          converted_price: item.price_eur,
+          converted_total: item.price_eur * item.quantity,
+        }));
+        
+        setItems(convertedItems);
+        setSourceCurrency('EUR'); // GPT-4o converts everything to EUR
+        setTargetCurrency('EUR');
         setCurrentStep('currency');
       } else {
         setError(data.error || 'Failed to process receipt');
@@ -490,16 +500,26 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setTargetCurrency(newCurrency);
+    
+    // Since GPT-4o already converts to EUR, we'll use the existing items
+    // and convert them to the new target currency if needed
+    if (newCurrency === 'EUR') {
+      setCurrentStep('participants');
+      return;
+    }
+    
+    // Convert currency if different from EUR
     try {
       setLoading(true);
-      const response = await fetch(API_ENDPOINTS.processReceipt, {
+      const response = await fetch(API_ENDPOINTS.convertCurrency, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          image: imageData,
-          target_currency: newCurrency,
+          items: items,
+          fromCurrency: 'EUR',
+          toCurrency: newCurrency,
         }),
       });
 
@@ -509,10 +529,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         setItems(data.items);
         setCurrentStep('participants');
       } else {
-        setError(data.error || 'Failed to process receipt');
+        setError(data.error || 'Failed to convert currency');
       }
     } catch (err) {
-      setError('Failed to process receipt');
+      console.error('Currency conversion error:', err);
+      setError('Failed to convert currency');
     } finally {
       setLoading(false);
     }
@@ -843,47 +864,81 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             ))}
           </Box>
 
-          {/* Continue Button */}
-          <Button
-            variant="contained"
-            endIcon={<ArrowForwardIosIcon sx={{ 
-              transition: 'transform 0.2s ease',
-              '.MuiButton-root:hover &': {
-                transform: 'translateX(4px)',
-              }
-            }} />}
-            sx={{
-              width: '100%',
-              borderRadius: '12px',
-              fontWeight: 700,
-              fontSize: '1.1rem',
-              padding: '16px 24px',
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              color: '#fff',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              textTransform: 'none',
-              letterSpacing: '0.5px',
-              transition: 'all 0.2s ease',
-              opacity: participants.length === 0 ? 0.5 : 1,
-              pointerEvents: participants.length === 0 ? 'none' : 'auto',
-              '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                '& .MuiSvgIcon-root': {
-                  transform: 'translateX(4px)',
+          {/* Navigation Buttons */}
+          <Box sx={{ 
+            width: '100%', 
+            display: 'flex', 
+            gap: 2,
+            flexDirection: { xs: 'column', sm: 'row' },
+          }}>
+            {/* Back Button */}
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              sx={{
+                borderRadius: '12px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                padding: '16px 24px',
+                border: `2px solid ${theme.palette.divider}`,
+                color: theme.palette.text.secondary,
+                textTransform: 'none',
+                transition: 'all 0.2s ease',
+                minWidth: { xs: '100%', sm: '140px' },
+                '&:hover': {
+                  border: `2px solid ${theme.palette.primary.main}`,
+                  color: theme.palette.primary.main,
+                  background: `${theme.palette.primary.main}08`,
+                  transform: 'translateY(-1px)',
                 },
-              },
-              '&:active': {
-                transform: 'translateY(0px)',
-              },
-            }}
-            onClick={() => setCurrentStep('assignments')}
-            disabled={participants.length === 0}
-            size="large"
-          >
-            Continue to Item Assignment
-          </Button>
+              }}
+              onClick={() => setCurrentStep('currency')}
+            >
+              Back
+            </Button>
+
+            {/* Continue Button */}
+            <Button
+              variant="contained"
+              endIcon={<ArrowForwardIosIcon sx={{ 
+                transition: 'transform 0.2s ease',
+                '.MuiButton-root:hover &': {
+                  transform: 'translateX(4px)',
+                }
+              }} />}
+              sx={{
+                flex: 1,
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                padding: '16px 24px',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                color: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                textTransform: 'none',
+                letterSpacing: '0.5px',
+                transition: 'all 0.2s ease',
+                opacity: participants.length === 0 ? 0.5 : 1,
+                pointerEvents: participants.length === 0 ? 'none' : 'auto',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                  '& .MuiSvgIcon-root': {
+                    transform: 'translateX(4px)',
+                  },
+                },
+                '&:active': {
+                  transform: 'translateY(0px)',
+                },
+              }}
+              onClick={() => setCurrentStep('assignments')}
+              disabled={participants.length === 0}
+              size="large"
+            >
+              Continue to Item Assignment
+            </Button>
+          </Box>
         </Box>
       </Box>
     );
@@ -1168,7 +1223,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               flex: 1,
                               pr: 2,
                             }}>
-                              {item.item}
+                              {item.item}{item.qty > 1 ? ` (x ${item.qty})` : ''}
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Typography sx={{ 
@@ -1201,7 +1256,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           </CarouselContainer>
         </Box>
         
-        {/* Sticky Calculate Split Button */}
+        {/* Sticky Navigation Buttons */}
         <Box sx={{
           position: { xs: 'fixed', sm: 'static' },
           bottom: { xs: 20, sm: 'auto' },
@@ -1210,10 +1265,39 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           zIndex: 1000,
           display: 'flex',
           justifyContent: 'center',
+          gap: 2,
           mt: { xs: 0, sm: 3 },
           mb: { xs: 0, sm: 2 },
           px: { xs: 0, sm: 2 },
         }}>
+          {/* Back Button */}
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            sx={{
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: '1rem',
+              px: { xs: 3, sm: 2 },
+              py: { xs: 2, sm: 1.5 },
+              border: `2px solid ${theme.palette.divider}`,
+              color: theme.palette.text.secondary,
+              textTransform: 'none',
+              transition: 'all 0.2s ease',
+              minWidth: { xs: '120px', sm: '100px' },
+              '&:hover': {
+                border: `2px solid ${theme.palette.primary.main}`,
+                color: theme.palette.primary.main,
+                background: `${theme.palette.primary.main}08`,
+                transform: 'translateY(-1px)',
+              },
+            }}
+            onClick={() => setCurrentStep('participants')}
+          >
+            Back
+          </Button>
+          
+          {/* Calculate Split Button */}
           <Button
             variant="contained"
             sx={{
@@ -1222,12 +1306,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               borderRadius: 12,
               fontWeight: 600,
               fontFamily: 'Inter, system-ui, sans-serif',
-              px: { xs: 6, sm: 4 },
+              px: { xs: 4, sm: 3 },
               py: { xs: 2, sm: 1.5 },
               fontSize: '1.1rem',
               boxShadow: { xs: '0 4px 20px rgba(0,0,0,0.15)', sm: '0 2px 8px rgba(30,41,59,0.07)' },
               textTransform: 'none',
-              width: { xs: '100%', sm: 'auto' },
+              flex: 1,
               maxWidth: { xs: 'none', sm: '200px' },
               '&:hover': {
                 background: `linear-gradient(90deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,

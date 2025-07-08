@@ -12,10 +12,17 @@ export interface ProcessedItem {
   shared_by?: string[];
 }
 
+export interface ReceiptItem {
+  name: string;
+  quantity: number;
+  price_eur: number;
+}
+
 export interface ProcessReceiptResponse {
-  items: ProcessedItem[];
-  originalCurrency: string;
-  targetCurrency: string;
+  success: boolean;
+  items: ReceiptItem[];
+  total_eur: number;
+  language: string;
 }
 
 export interface SplitBillResponse {
@@ -26,12 +33,10 @@ export interface SplitBillResponse {
 }
 
 export const processReceipt = async (
-  imageData: string,
-  targetCurrency: string = 'USD'
+  imageBase64: string
 ): Promise<ProcessReceiptResponse> => {
   const response = await axios.post(`${API_BASE_URL}/process-receipt`, {
-    image: imageData,
-    target_currency: targetCurrency,
+    imageBase64: imageBase64,
   });
   return response.data;
 };
