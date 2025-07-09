@@ -34,6 +34,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { API_ENDPOINTS } from '../config/api';
 import Switch from '@mui/material/Switch';
 import GroupIcon from '@mui/icons-material/Group';
@@ -624,6 +625,15 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     return getUnassignedItems().length > 0;
   };
 
+  // Helper function to get assignment progress
+  const getAssignmentProgress = () => {
+    const totalItems = items.filter(item => !item.isSpecialItem).length;
+    const assignedItems = items.filter(item => 
+      !item.isSpecialItem && item.shared_by && item.shared_by.length > 0
+    ).length;
+    return { assigned: assignedItems, total: totalItems };
+  };
+
   // Helper function to automatically assign special items to all participants
   const assignSpecialItemsToAllParticipants = () => {
     const updatedItems = items.map(item => {
@@ -641,11 +651,31 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   const calculateBill = async () => {
     try {
+      // Comprehensive validation before processing
+      if (participants.length === 0) {
+        setError('Please add at least one participant');
+        return;
+      }
+
+      if (items.length === 0) {
+        setError('No items found in the receipt');
+        return;
+      }
+
       // Check for unassigned items first
       const unassigned = getUnassignedItems();
       if (unassigned.length > 0) {
         setUnassignedItems(unassigned);
         setCurrentStep('confirmation');
+        return;
+      }
+
+      // Final validation: ensure all non-special items are assigned
+      const regularItems = items.filter(item => !item.isSpecialItem);
+      const fullyAssignedItems = regularItems.filter(item => item.shared_by && item.shared_by.length > 0);
+      
+      if (fullyAssignedItems.length !== regularItems.length) {
+        setError('Some items are not assigned to any participant');
         return;
       }
 
@@ -1485,43 +1515,84 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             Back
           </Button>
           
-          {/* Calculate Split Button */}
-          <Button
-            variant="contained"
-            sx={{
-              background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              color: '#fff',
-              borderRadius: 12,
-              fontWeight: 600,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              px: { xs: 4, sm: 3 },
-              py: { xs: 2, sm: 1.5 },
-              fontSize: '1.1rem',
-              boxShadow: { xs: '0 4px 20px rgba(0,0,0,0.15)', sm: '0 2px 8px rgba(30,41,59,0.07)' },
-              textTransform: 'none',
-              flex: 1,
-              maxWidth: { xs: 'none', sm: '200px' },
-              '&:hover': {
-                background: `linear-gradient(90deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 25px rgba(0,0,0,0.2)',
-              },
-              '&:disabled': {
-                background: '#e5e7eb',
-                color: '#9ca3af',
-                boxShadow: 'none',
-              },
-              transition: 'all 0.2s ease',
-            }}
-            onClick={calculateBill}
-            disabled={items.some(item => 
-              !item.shared_by?.length && 
-              !item.isSpecialItem
-            )}
-            size="large"
-          >
-            Calculate Split
-          </Button>
+          {/* Progress and Calculate Split Button */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 2,
+            flex: 1,
+            maxWidth: { xs: 'none', sm: '200px' },
+          }}>
+            {/* Progress Indicator */}
+            {(() => {
+              const progress = getAssignmentProgress();
+              const isComplete = progress.assigned === progress.total;
+              
+              return (
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  justifyContent: 'center',
+                  fontSize: '0.875rem',
+                  color: isComplete ? theme.palette.success.main : theme.palette.warning.main,
+                  fontWeight: 500,
+                }}>
+                  {isComplete ? (
+                    <>
+                      <CheckCircleIcon sx={{ fontSize: 16 }} />
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                        All items assigned!
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                        {progress.assigned}/{progress.total} items assigned
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              );
+            })()}
+            
+            {/* Calculate Split Button */}
+            <Button
+              variant="contained"
+              sx={{
+                background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                color: '#fff',
+                borderRadius: 12,
+                fontWeight: 600,
+                fontFamily: 'Inter, system-ui, sans-serif',
+                px: { xs: 4, sm: 3 },
+                py: { xs: 2, sm: 1.5 },
+                fontSize: '1.1rem',
+                boxShadow: { xs: '0 4px 20px rgba(0,0,0,0.15)', sm: '0 2px 8px rgba(30,41,59,0.07)' },
+                textTransform: 'none',
+                width: '100%',
+                '&:hover': {
+                  background: `linear-gradient(90deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 25px rgba(0,0,0,0.2)',
+                },
+                '&:disabled': {
+                  background: '#e5e7eb',
+                  color: '#9ca3af',
+                  boxShadow: 'none',
+                },
+                transition: 'all 0.2s ease',
+              }}
+              onClick={calculateBill}
+              disabled={items.some(item => 
+                !item.shared_by?.length && 
+                !item.isSpecialItem
+              )}
+              size="large"
+            >
+              Calculate Split
+            </Button>
+          </Box>
         </Box>
       </Box>
     );
@@ -1590,7 +1661,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               mb: 2,
             }}
           >
-            Items Not Assigned
+            ⚠️ Items Not Assigned
           </Typography>
           
           <Typography 
@@ -1603,7 +1674,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               fontSize: '0.95rem',
             }}
           >
-            The following items won't be included in the split:
+            The following items are not assigned to any participant and will be excluded from the split:
           </Typography>
 
           {/* Unassigned Items List */}
@@ -1651,7 +1722,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               fontSize: '0.85rem',
             }}
           >
-            Are you sure you want to exclude these items from the split?
+            <strong>Recommendation:</strong> Go back and assign these items to participants for a complete split.
           </Typography>
 
           {/* Navigation Buttons */}
@@ -1662,8 +1733,33 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             flexDirection: { xs: 'column', sm: 'row' },
           }}>
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<ArrowBackIcon />}
+              sx={{
+                flex: 1,
+                borderRadius: '12px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                padding: '16px 24px',
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                color: '#fff',
+                textTransform: 'none',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+                  transform: 'translateY(-1px)',
+                },
+              }}
+              onClick={() => {
+                assignSpecialItemsToAllParticipants();
+                setCurrentStep('assignments');
+              }}
+            >
+              Go Back & Assign Items
+            </Button>
+
+            <Button
+              variant="outlined"
               sx={{
                 flex: 1,
                 borderRadius: '12px',
@@ -1675,40 +1771,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 textTransform: 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  border: `2px solid ${theme.palette.primary.main}`,
-                  color: theme.palette.primary.main,
+                  border: `2px solid ${theme.palette.warning.main}`,
+                  color: theme.palette.warning.main,
                   transform: 'translateY(-1px)',
-                },
-              }}
-              onClick={() => {
-                assignSpecialItemsToAllParticipants();
-                setCurrentStep('assignments');
-              }}
-            >
-              Go Back & Assign
-            </Button>
-
-            <Button
-              variant="contained"
-              sx={{
-                flex: 1,
-                borderRadius: '12px',
-                fontWeight: 700,
-                fontSize: '1.1rem',
-                padding: '16px 24px',
-                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                color: '#fff',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                textTransform: 'none',
-                letterSpacing: '0.5px',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
-                },
-                '&:active': {
-                  transform: 'translateY(0px)',
                 },
               }}
               onClick={() => processBillSplit()}
