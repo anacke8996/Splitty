@@ -224,7 +224,7 @@ function App() {
                 variant="contained"
                 size="large"
                 startIcon={<FileUploadIcon />}
-                component="span"
+                {...({ component: "span" } as any)}
               >
                 Upload Receipt
               </UploadButton>
