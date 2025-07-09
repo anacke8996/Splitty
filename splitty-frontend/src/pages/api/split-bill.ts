@@ -45,6 +45,18 @@ export default function handler(
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Failsafe: Auto-assign special items to all participants if not already assigned
+    const processedItems = items.map(item => {
+      if (item.isSpecialItem && (!item.shared_by || item.shared_by.length === 0)) {
+        console.log(`Auto-assigning special item "${item.item}" to all participants`);
+        return {
+          ...item,
+          shared_by: [...participants]
+        };
+      }
+      return item;
+    });
+
     // Initialize response object
     const splitBill: SplitBillResponse = {};
     participants.forEach(participant => {
@@ -54,10 +66,10 @@ export default function handler(
       };
     });
 
-    console.log('Processing', items.length, 'items for', participants.length, 'participants');
+    console.log('Processing', processedItems.length, 'items for', participants.length, 'participants');
 
     // Process each item
-    items.forEach((item, index) => {
+    processedItems.forEach((item, index) => {
       const sharedBy = item.shared_by || [];
       console.log(`Item ${index + 1} (${item.item}): shared by`, sharedBy.length, 'people:', sharedBy);
       

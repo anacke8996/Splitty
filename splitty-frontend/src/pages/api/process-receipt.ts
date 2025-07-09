@@ -57,10 +57,10 @@ async function processReceiptWithGPT(imageBase64?: string, receiptText?: string)
    - If the total price is listed (e.g. 3 items for $7.50), infer unit price as 7.50 / 3
 
 2. Extract tax, tips, service charges, and discounts as separate line items:
-   - Tax (sales tax, VAT, HST, etc.)
-   - Tips/gratuity (automatic gratuity, service charge)
-   - Service charges, delivery fees
-   - Discounts (negative amounts)
+   - Tax (sales tax, VAT, HST, GST, etc.)
+   - Tips/gratuity (automatic gratuity, service charge, suggested tip)
+   - Service charges (service fee, delivery fee, convenience fee, booking fee, processing fee, handling fee, corkage fee, cover charge)
+   - Discounts (negative amounts, promotions, coupons)
    - Mark these as special items
 
 3. Calculate subtotal (before tax and tips) and total (final amount)
@@ -88,6 +88,14 @@ Return the information in this exact JSON format:
       "specialType": "tax"
     },
     {
+      "name": "Service Charge",
+      "quantity": 1,
+      "price": 5.00,
+      "currency": "USD",
+      "isSpecialItem": true,
+      "specialType": "service_charge"
+    },
+    {
       "name": "Tip",
       "quantity": 1,
       "price": 3.00,
@@ -97,7 +105,7 @@ Return the information in this exact JSON format:
     }
   ],
   "subtotal": 15.00,
-  "total": 20.50,
+  "total": 25.50,
   "currency": "USD",
   "language": "detected language"
 }
@@ -110,10 +118,15 @@ Important:
 - If quantity is not specified, default to 1
 - Always calculate unit price, not total price for items
 - Be precise with decimal places for prices
-- Identify tax/tip/service charges and mark them as special items
-- Calculate subtotal (before tax) and total (final amount)
+- Identify ALL types of fees and charges that should be shared by all participants:
+  * Tax: VAT, sales tax, HST, GST, city tax, etc.
+  * Service charges: service fee, delivery fee, convenience fee, booking fee, processing fee, handling fee, corkage fee, cover charge, facility fee, etc.
+  * Tips: automatic gratuity, service charge (when it's a tip), suggested tip, mandatory gratuity
+  * Discounts: promotions, coupons, member discounts (negative amounts)
+- Calculate subtotal (before tax and fees) and total (final amount)
 - Special items should have quantity=1 and price=total amount
-- Look for keywords like: tax, VAT, HST, GST, tip, gratuity, service charge, delivery fee, discount`;
+- Look for keywords like: tax, VAT, HST, GST, service, delivery, convenience, booking, processing, handling, corkage, cover, facility, tip, gratuity, discount, promotion, coupon
+- Common service charge variations: "Service Charge", "Svc Charge", "Service Fee", "Delivery Fee", "Convenience Fee", "Booking Fee", "Processing Fee", "Handling Fee", "Corkage Fee", "Cover Charge", "Facility Fee", "Administrative Fee", "Maintenance Fee"`;
 
   try {
     const messageContent = [];

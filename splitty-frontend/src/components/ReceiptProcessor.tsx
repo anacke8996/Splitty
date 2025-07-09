@@ -21,7 +21,11 @@ import {
   useMediaQuery,
   MobileStepper,
   Grow,
-  Chip
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SwipeableViews from 'react-swipeable-views';
@@ -445,7 +449,6 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [participants, setParticipants] = useState<string[]>([]);
   const [newParticipant, setNewParticipant] = useState('');
   const [showSummary, setShowSummary] = useState(false);
-  const [userTotals, setUserTotals] = useState<Record<string, number>>({});
   const [sourceCurrency, setSourceCurrency] = useState('');
   const [targetCurrency, setTargetCurrency] = useState('USD');
   const [currentStep, setCurrentStep] = useState<'loading' | 'currency' | 'participants' | 'assignments' | 'confirmation' | 'summary'>('loading');
@@ -455,8 +458,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [inputError, setInputError] = useState(false);
   const [chipKey, setChipKey] = useState(0);
   const [unassignedItems, setUnassignedItems] = useState<ReceiptItem[]>([]);
+  const [userTotals, setUserTotals] = useState<Record<string, number>>({});
 
-  // Process receipt when component mounts
+
+  // Only process receipt when component mounts - don't auto-assign special items repeatedly
   React.useEffect(() => {
     processReceipt();
   }, [imageData]);
@@ -551,15 +556,6 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       setNewParticipant('');
       setInputError(false);
       setChipKey(prev => prev + 1);
-      
-      // Auto-assign tax items to all participants (including new one)
-      const updatedItems = [...items];
-      updatedItems.forEach(item => {
-        if (item.isSpecialItem && item.specialType === 'tax') {
-          item.shared_by = newParticipants;
-        }
-      });
-      setItems(updatedItems);
     } else {
       setInputError(true);
       setTimeout(() => setInputError(false), 500);
@@ -572,14 +568,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     newParticipants.splice(index, 1);
     setParticipants(newParticipants);
     
-    // Update item assignments - remove participant from all items but keep tax items assigned to all remaining participants
+    // Update item assignments - remove participant from all items they were assigned to
     const updatedItems = [...items];
     updatedItems.forEach(item => {
-      if (item.isSpecialItem && item.specialType === 'tax') {
-        // Tax items should be assigned to all remaining participants
-        item.shared_by = newParticipants;
-      } else if (item.shared_by) {
-        // Regular items - just remove the participant
+      if (item.shared_by) {
+        // Remove the participant from all items (both regular and special)
         item.shared_by = item.shared_by.filter(p => p !== removedParticipant);
       }
     });
@@ -597,11 +590,6 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const updatedItems = [...items];
     const item = updatedItems[itemIndex];
     
-    // Tax items are automatically assigned to all participants and can't be toggled
-    if (item.isSpecialItem && item.specialType === 'tax') {
-      return;
-    }
-    
     if (!item.shared_by) {
       item.shared_by = [];
     }
@@ -616,11 +604,18 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setItems(updatedItems);
   };
 
-  // Helper function to get unassigned items (excluding tax items which are auto-assigned)
+
+
+  // Helper function to determine checkbox state
+  const getCheckboxState = (item: ReceiptItem, participant: string, itemIndex: number) => {
+    return item.shared_by?.includes(participant) || false;
+  };
+
+  // Helper function to get unassigned items (excluding special items which are auto-assigned)
   const getUnassignedItems = () => {
     return items.filter(item => 
       (!item.shared_by || item.shared_by.length === 0) && 
-      !(item.isSpecialItem && item.specialType === 'tax')
+      !item.isSpecialItem
     );
   };
 
@@ -629,13 +624,17 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     return getUnassignedItems().length > 0;
   };
 
-  // Helper function to automatically assign tax items to all participants
-  const assignTaxToAllParticipants = () => {
-    const updatedItems = [...items];
-    updatedItems.forEach(item => {
-      if (item.isSpecialItem && item.specialType === 'tax') {
-        item.shared_by = [...participants]; // Assign tax to all participants
+  // Helper function to automatically assign special items to all participants
+  const assignSpecialItemsToAllParticipants = () => {
+    const updatedItems = items.map(item => {
+      // Only assign special items that don't have any assignments yet (first time only)
+      if (item.isSpecialItem && (!item.shared_by || item.shared_by.length === 0)) {
+        return {
+          ...item,
+          shared_by: [...participants] // Assign all special items to all participants
+        };
       }
+      return item;
     });
     setItems(updatedItems);
   };
@@ -1008,7 +1007,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 },
               }}
               onClick={() => {
-                assignTaxToAllParticipants();
+                assignSpecialItemsToAllParticipants();
                 setCurrentStep('assignments');
               }}
               disabled={participants.length === 0}
@@ -1179,12 +1178,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               {participants.map((participant, index) => {
                 const handleSelectAll = () => {
                   // Check if all non-tax items are already selected for this participant
-                  const nonTaxItems = items.filter(item => !(item.isSpecialItem && item.specialType === 'tax'));
+                  const nonTaxItems = items.filter(item => !item.isSpecialItem);
                   const allSelected = nonTaxItems.every(item => item.shared_by?.includes(participant));
                   
                   const updatedItems = items.map(item => {
                     // Skip tax items - they remain assigned to all participants
-                    if (item.isSpecialItem && item.specialType === 'tax') {
+                    if (item.isSpecialItem) {
                       return item;
                     }
                     
@@ -1206,7 +1205,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 };
 
                 // Check if all non-tax items are selected for this participant
-                const nonTaxItems = items.filter(item => !(item.isSpecialItem && item.specialType === 'tax'));
+                const nonTaxItems = items.filter(item => !item.isSpecialItem);
                 const allSelected = nonTaxItems.every(item => item.shared_by?.includes(participant));
                 
                 return (
@@ -1281,7 +1280,23 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         },
                       }}>
                         {items.map((item, itemIndex) => {
-                          const isTaxItem = item.isSpecialItem && item.specialType === 'tax';
+                          const isTaxItem = item.isSpecialItem;
+                          
+                          // Helper function to get special item label and color
+                          const getSpecialItemDisplay = (item: ReceiptItem) => {
+                            if (!item.isSpecialItem) return null;
+                            
+                            const displays = {
+                              'tax': { label: 'TAX', color: '#0ea5e9' },
+                              'tip': { label: 'TIP', color: '#10b981' },
+                              'service_charge': { label: 'SERVICE', color: '#f59e0b' },
+                              'discount': { label: 'DISCOUNT', color: '#8b5cf6' }
+                            };
+                            
+                            return displays[item.specialType || 'tax'] || displays['tax'];
+                          };
+                          
+                          const specialDisplay = getSpecialItemDisplay(item);
                           
                           return (
                             <ReceiptRow 
@@ -1292,18 +1307,19 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                 px: 0.5,
                                 fontSize: '1rem',
                                 borderBottom: `1px solid ${theme.palette.divider}`,
-                                cursor: isTaxItem ? 'default' : 'pointer',
+                                cursor: 'pointer',
                                 borderRadius: '8px',
                                 mb: 0.5,
-                                backgroundColor: isTaxItem ? '#f0f9ff' : 'transparent',
-                                border: isTaxItem ? '1px solid #0ea5e9' : 'none',
+                                backgroundColor: isTaxItem ? `${specialDisplay?.color}08` : 'transparent',
+                                border: isTaxItem ? `1px solid ${specialDisplay?.color}` : 'none',
                                 '&:hover': {
-                                  backgroundColor: isTaxItem ? '#e0f2fe' : theme.palette.action.hover,
+                                  backgroundColor: isTaxItem ? `${specialDisplay?.color}15` : theme.palette.action.hover,
                                 },
                                 '&:last-child': {
                                   borderBottom: 'none',
                                   mb: 0,
-                                }
+                                },
+
                               }}
                               onClick={() => toggleItemAssignment(itemIndex, participant)}
                             >
@@ -1316,9 +1332,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                 alignItems: 'center',
                                 gap: 1,
                               }}>
-                                {isTaxItem && (
+                                {isTaxItem && specialDisplay && (
                                   <Box sx={{
-                                    backgroundColor: '#0ea5e9',
+                                    backgroundColor: specialDisplay.color,
                                     color: 'white',
                                     fontSize: '0.7rem',
                                     fontWeight: 600,
@@ -1327,7 +1343,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.5px',
                                   }}>
-                                    TAX
+                                    {specialDisplay.label}
                                   </Box>
                                 )}
                                 <Box>
@@ -1335,11 +1351,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                   {isTaxItem && (
                                     <Box sx={{ 
                                       fontSize: '0.75rem', 
-                                      color: '#0ea5e9',
+                                      color: specialDisplay?.color || '#0ea5e9',
                                       fontWeight: 500,
                                       mt: 0.5,
                                     }}>
-                                      Applied to all participants
+                                      Usually shared by all participants (click to change)
                                     </Box>
                                   )}
                                 </Box>
@@ -1356,9 +1372,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                   {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
                                 </Typography>
                                 <StyledCheckbox
-                                  checked={item.shared_by?.includes(participant) || false}
-                                  disabled={isTaxItem}
+                                  checked={getCheckboxState(item, participant, itemIndex)}
+                                  disabled={false}
                                   onChange={(e) => {
+                                    e.preventDefault(); // Prevent default checkbox behavior
                                     e.stopPropagation(); // Prevent event bubbling to parent row
                                     toggleItemAssignment(itemIndex, participant);
                                   }}
@@ -1367,10 +1384,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                   }}
                                   sx={{ 
                                     ml: 0.5,
-                                    '&.Mui-disabled': {
-                                      color: '#0ea5e9',
-                                      opacity: 0.8,
+                                    color: isTaxItem ? (specialDisplay?.color || '#0ea5e9') : 'default',
+                                    '&.Mui-checked': {
+                                      color: specialDisplay?.color || '#0ea5e9',
                                     },
+
                                   }}
                                 />
                               </Box>
@@ -1498,7 +1516,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             onClick={calculateBill}
             disabled={items.some(item => 
               !item.shared_by?.length && 
-              !(item.isSpecialItem && item.specialType === 'tax')
+              !item.isSpecialItem
             )}
             size="large"
           >
@@ -1663,7 +1681,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 },
               }}
               onClick={() => {
-                assignTaxToAllParticipants();
+                assignSpecialItemsToAllParticipants();
                 setCurrentStep('assignments');
               }}
             >
@@ -1916,7 +1934,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   variant="outlined"
                   startIcon={<ArrowBackIcon />}
                   onClick={() => {
-                    assignTaxToAllParticipants();
+                    assignSpecialItemsToAllParticipants();
                     setCurrentStep('assignments');
                   }}
                   sx={{
