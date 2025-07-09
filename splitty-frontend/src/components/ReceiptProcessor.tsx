@@ -44,6 +44,8 @@ interface ReceiptItem {
   converted_price?: number;
   converted_total?: number;
   shared_by?: string[];
+  isSpecialItem?: boolean;
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 interface ReceiptProcessorProps {
@@ -477,12 +479,14 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       if (data.success) {
         // Convert new GPT format to component format (preserving original currency)
         const convertedItems = data.items.map((item: any) => ({
-          item: item.name,
+          item: item.item,
           price: item.price,
-          qty: item.quantity,
-          total: item.price * item.quantity,
+          qty: item.qty,
+          total: item.total,
           converted_price: item.price,
-          converted_total: item.price * item.quantity,
+          converted_total: item.total,
+          isSpecialItem: item.isSpecialItem || false,
+          specialType: item.specialType
         }));
         
         setItems(convertedItems);
@@ -542,10 +546,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   // Animated add with shake if empty
   const handleAddParticipant = () => {
     if (newParticipant.trim() && !participants.includes(newParticipant.trim())) {
-      setParticipants([...participants, newParticipant.trim()]);
+      const newParticipants = [...participants, newParticipant.trim()];
+      setParticipants(newParticipants);
       setNewParticipant('');
       setInputError(false);
       setChipKey(prev => prev + 1);
+      
+      // Auto-assign tax items to all participants (including new one)
+      const updatedItems = [...items];
+      updatedItems.forEach(item => {
+        if (item.isSpecialItem && item.specialType === 'tax') {
+          item.shared_by = newParticipants;
+        }
+      });
+      setItems(updatedItems);
     } else {
       setInputError(true);
       setTimeout(() => setInputError(false), 500);
@@ -554,8 +568,22 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   const removeParticipant = (index: number) => {
     const newParticipants = [...participants];
+    const removedParticipant = newParticipants[index];
     newParticipants.splice(index, 1);
     setParticipants(newParticipants);
+    
+    // Update item assignments - remove participant from all items but keep tax items assigned to all remaining participants
+    const updatedItems = [...items];
+    updatedItems.forEach(item => {
+      if (item.isSpecialItem && item.specialType === 'tax') {
+        // Tax items should be assigned to all remaining participants
+        item.shared_by = newParticipants;
+      } else if (item.shared_by) {
+        // Regular items - just remove the participant
+        item.shared_by = item.shared_by.filter(p => p !== removedParticipant);
+      }
+    });
+    setItems(updatedItems);
   };
 
   const handleParticipantKeyPress = (event: React.KeyboardEvent) => {
@@ -568,6 +596,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const toggleItemAssignment = (itemIndex: number, participant: string) => {
     const updatedItems = [...items];
     const item = updatedItems[itemIndex];
+    
+    // Tax items are automatically assigned to all participants and can't be toggled
+    if (item.isSpecialItem && item.specialType === 'tax') {
+      return;
+    }
     
     if (!item.shared_by) {
       item.shared_by = [];
@@ -583,14 +616,28 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setItems(updatedItems);
   };
 
-  // Helper function to get unassigned items
+  // Helper function to get unassigned items (excluding tax items which are auto-assigned)
   const getUnassignedItems = () => {
-    return items.filter(item => !item.shared_by || item.shared_by.length === 0);
+    return items.filter(item => 
+      (!item.shared_by || item.shared_by.length === 0) && 
+      !(item.isSpecialItem && item.specialType === 'tax')
+    );
   };
 
   // Helper function to check if there are unassigned items
   const hasUnassignedItems = () => {
     return getUnassignedItems().length > 0;
+  };
+
+  // Helper function to automatically assign tax items to all participants
+  const assignTaxToAllParticipants = () => {
+    const updatedItems = [...items];
+    updatedItems.forEach(item => {
+      if (item.isSpecialItem && item.specialType === 'tax') {
+        item.shared_by = [...participants]; // Assign tax to all participants
+      }
+    });
+    setItems(updatedItems);
   };
 
   const calculateBill = async () => {
@@ -960,7 +1007,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   transform: 'translateY(0px)',
                 },
               }}
-              onClick={() => setCurrentStep('assignments')}
+              onClick={() => {
+                assignTaxToAllParticipants();
+                setCurrentStep('assignments');
+              }}
               disabled={participants.length === 0}
               size="large"
             >
@@ -1128,18 +1178,24 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             >
               {participants.map((participant, index) => {
                 const handleSelectAll = () => {
-                  // Check if all items are already selected for this participant
-                  const allSelected = items.every(item => item.shared_by?.includes(participant));
+                  // Check if all non-tax items are already selected for this participant
+                  const nonTaxItems = items.filter(item => !(item.isSpecialItem && item.specialType === 'tax'));
+                  const allSelected = nonTaxItems.every(item => item.shared_by?.includes(participant));
                   
                   const updatedItems = items.map(item => {
+                    // Skip tax items - they remain assigned to all participants
+                    if (item.isSpecialItem && item.specialType === 'tax') {
+                      return item;
+                    }
+                    
                     if (allSelected) {
-                      // Unselect all - remove participant from all items
+                      // Unselect all - remove participant from all non-tax items
                       return {
                         ...item,
                         shared_by: (item.shared_by || []).filter(p => p !== participant)
                       };
                     } else {
-                      // Select all - add participant to all items
+                      // Select all - add participant to all non-tax items
                       return {
                         ...item,
                         shared_by: Array.from(new Set([...(item.shared_by || []), participant]))
@@ -1149,8 +1205,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   setItems(updatedItems);
                 };
 
-                // Check if all items are selected for this participant
-                const allSelected = items.every(item => item.shared_by?.includes(participant));
+                // Check if all non-tax items are selected for this participant
+                const nonTaxItems = items.filter(item => !(item.isSpecialItem && item.specialType === 'tax'));
+                const allSelected = nonTaxItems.every(item => item.shared_by?.includes(participant));
                 
                 return (
                   <ReceiptScallopedWrapper key={participant}>
@@ -1223,61 +1280,103 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                           display: 'none', // Hide scrollbar since parent will handle it
                         },
                       }}>
-                        {items.map((item, itemIndex) => (
-                          <ReceiptRow 
-                            key={itemIndex} 
-                            sx={{ 
-                              minHeight: '48px',
-                              py: 1.5,
-                              px: 0.5,
-                              fontSize: '1rem',
-                              borderBottom: `1px solid ${theme.palette.divider}`,
-                              cursor: 'pointer',
-                              borderRadius: '8px',
-                              mb: 0.5,
-                              '&:hover': {
-                                backgroundColor: theme.palette.action.hover,
-                              },
-                              '&:last-child': {
-                                borderBottom: 'none',
-                                mb: 0,
-                              }
-                            }}
-                            onClick={() => toggleItemAssignment(itemIndex, participant)}
-                          >
-                            <Box sx={{ 
-                              fontWeight: item.shared_by?.includes(participant) ? 600 : 400, 
-                              color: theme.palette.text.primary,
-                              flex: 1,
-                              pr: 2,
-                            }}>
-                              {item.item}{item.qty > 1 ? ` (x ${item.qty})` : ''}
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography sx={{ 
-                                minWidth: 'auto',
-                                textAlign: 'right', 
+                        {items.map((item, itemIndex) => {
+                          const isTaxItem = item.isSpecialItem && item.specialType === 'tax';
+                          
+                          return (
+                            <ReceiptRow 
+                              key={itemIndex} 
+                              sx={{ 
+                                minHeight: '48px',
+                                py: 1.5,
+                                px: 0.5,
                                 fontSize: '1rem',
-                                fontWeight: 600,
+                                borderBottom: `1px solid ${theme.palette.divider}`,
+                                cursor: isTaxItem ? 'default' : 'pointer',
+                                borderRadius: '8px',
+                                mb: 0.5,
+                                backgroundColor: isTaxItem ? '#f0f9ff' : 'transparent',
+                                border: isTaxItem ? '1px solid #0ea5e9' : 'none',
+                                '&:hover': {
+                                  backgroundColor: isTaxItem ? '#e0f2fe' : theme.palette.action.hover,
+                                },
+                                '&:last-child': {
+                                  borderBottom: 'none',
+                                  mb: 0,
+                                }
+                              }}
+                              onClick={() => toggleItemAssignment(itemIndex, participant)}
+                            >
+                              <Box sx={{ 
+                                fontWeight: item.shared_by?.includes(participant) ? 600 : 400, 
                                 color: theme.palette.text.primary,
-                                fontFamily: 'Inter, system-ui, sans-serif',
+                                flex: 1,
+                                pr: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
                               }}>
-                                {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
-                              </Typography>
-                              <StyledCheckbox
-                                checked={item.shared_by?.includes(participant) || false}
-                                onChange={(e) => {
-                                  e.stopPropagation(); // Prevent event bubbling to parent row
-                                  toggleItemAssignment(itemIndex, participant);
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent event bubbling to parent row
-                                }}
-                                sx={{ ml: 0.5 }}
-                              />
-                            </Box>
-                          </ReceiptRow>
-                        ))}
+                                {isTaxItem && (
+                                  <Box sx={{
+                                    backgroundColor: '#0ea5e9',
+                                    color: 'white',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                  }}>
+                                    TAX
+                                  </Box>
+                                )}
+                                <Box>
+                                  {item.item}{item.qty > 1 ? ` (x ${item.qty})` : ''}
+                                  {isTaxItem && (
+                                    <Box sx={{ 
+                                      fontSize: '0.75rem', 
+                                      color: '#0ea5e9',
+                                      fontWeight: 500,
+                                      mt: 0.5,
+                                    }}>
+                                      Applied to all participants
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{ 
+                                  minWidth: 'auto',
+                                  textAlign: 'right', 
+                                  fontSize: '1rem',
+                                  fontWeight: 600,
+                                  color: theme.palette.text.primary,
+                                  fontFamily: 'Inter, system-ui, sans-serif',
+                                }}>
+                                  {getCurrencySymbol(targetCurrency)}{(item.converted_total?.toFixed(2) || item.total.toFixed(2))}
+                                </Typography>
+                                <StyledCheckbox
+                                  checked={item.shared_by?.includes(participant) || false}
+                                  disabled={isTaxItem}
+                                  onChange={(e) => {
+                                    e.stopPropagation(); // Prevent event bubbling to parent row
+                                    toggleItemAssignment(itemIndex, participant);
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent event bubbling to parent row
+                                  }}
+                                  sx={{ 
+                                    ml: 0.5,
+                                    '&.Mui-disabled': {
+                                      color: '#0ea5e9',
+                                      opacity: 0.8,
+                                    },
+                                  }}
+                                />
+                              </Box>
+                            </ReceiptRow>
+                          );
+                        })}
                       </ReceiptTable>
                     </ResponsiveReceiptCard>
                     <ScallopEdge viewBox="0 0 400 16" preserveAspectRatio="none" style={{ transform: 'rotate(180deg)' }}>
@@ -1397,7 +1496,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               transition: 'all 0.2s ease',
             }}
             onClick={calculateBill}
-            disabled={items.some(item => !item.shared_by?.length)}
+            disabled={items.some(item => 
+              !item.shared_by?.length && 
+              !(item.isSpecialItem && item.specialType === 'tax')
+            )}
             size="large"
           >
             Calculate Split
@@ -1560,7 +1662,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   transform: 'translateY(-1px)',
                 },
               }}
-              onClick={() => setCurrentStep('assignments')}
+              onClick={() => {
+                assignTaxToAllParticipants();
+                setCurrentStep('assignments');
+              }}
             >
               Go Back & Assign
             </Button>
@@ -1811,6 +1916,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   variant="outlined"
                   startIcon={<ArrowBackIcon />}
                   onClick={() => {
+                    assignTaxToAllParticipants();
                     setCurrentStep('assignments');
                   }}
                   sx={{

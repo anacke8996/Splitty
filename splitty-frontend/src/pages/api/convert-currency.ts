@@ -9,6 +9,8 @@ interface ReceiptItem {
   converted_price?: number;
   converted_total?: number;
   shared_by?: string[];
+  isSpecialItem?: boolean;
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 interface ProcessedItem {
@@ -18,6 +20,8 @@ interface ProcessedItem {
   total: number;
   converted_price?: number;
   converted_total?: number;
+  isSpecialItem?: boolean;
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 async function convertPrices(
@@ -34,19 +38,24 @@ async function convertPrices(
       `https://api.freecurrencyapi.com/v1/latest?apikey=${process.env.FREECURRENCY_API_KEY}&currencies=${toCurrency}&base_currency=${fromCurrency}`
     );
 
-    const rate = response.data.data[toCurrency];
+    const rawRate = response.data.data[toCurrency];
     
-    if (!rate) {
+    if (!rawRate) {
       console.error(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
       return items;
     }
 
-    console.log(`Exchange rate ${fromCurrency} to ${toCurrency}: ${rate}`);
+    // Round the exchange rate to 3 decimal places for more predictable calculations
+    const rate = Number(rawRate.toFixed(3));
+
+    console.log(`Exchange rate ${fromCurrency} to ${toCurrency}: ${rawRate} → rounded to ${rate}`);
 
     return items.map(item => ({
       ...item,
       converted_price: Number((item.price * rate).toFixed(2)),
-      converted_total: Number((item.total * rate).toFixed(2))
+      converted_total: Number((item.total * rate).toFixed(2)),
+      isSpecialItem: item.isSpecialItem,
+      specialType: item.specialType
     }));
 
   } catch (error) {
@@ -76,6 +85,9 @@ export default async function handler(
   try {
     const { items, fromCurrency, toCurrency } = req.body;
 
+    console.log(`🔄 Currency conversion request: ${fromCurrency} → ${toCurrency}`);
+    console.log(`📊 Converting ${items?.length || 0} items`);
+
     if (!items || !Array.isArray(items)) {
       return res.status(400).json({ error: 'Items array is required' });
     }
@@ -91,10 +103,19 @@ export default async function handler(
       qty: item.qty,
       total: item.total,
       converted_price: item.converted_price,
-      converted_total: item.converted_total
+      converted_total: item.converted_total,
+      isSpecialItem: item.isSpecialItem,
+      specialType: item.specialType
     }));
 
     const convertedItems = await convertPrices(processedItems, fromCurrency, toCurrency);
+
+    // Log conversion results for debugging
+    console.log('✅ Conversion results:');
+    convertedItems.forEach((item, index) => {
+      const original = processedItems[index];
+      console.log(`   ${item.item}: ${original.total} ${fromCurrency} → ${item.converted_total} ${toCurrency}`);
+    });
 
     // Convert back to ReceiptItem format
     const result: ReceiptItem[] = convertedItems.map((item, index) => ({
@@ -104,7 +125,9 @@ export default async function handler(
       total: item.total,
       converted_price: item.converted_price || item.price,
       converted_total: item.converted_total || item.total,
-      shared_by: items[index].shared_by || []
+      shared_by: items[index].shared_by || [],
+      isSpecialItem: items[index].isSpecialItem,
+      specialType: items[index].specialType
     }));
 
     res.status(200).json({ 

@@ -124,6 +124,8 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
   targetCurrency,
   onTargetCurrencyChange,
 }) => {
+  const [selectedCurrency, setSelectedCurrency] = React.useState(targetCurrency);
+
   return (
     <Box sx={{ 
       minHeight: '100vh',
@@ -143,7 +145,7 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
         </InstructionText>
         
         {/* Helper text for quick splitting */}
-        {targetCurrency === sourceCurrency && (
+        {selectedCurrency === sourceCurrency && (
           <Box sx={{ 
             background: '#f0f9ff',
             border: '1px solid #0ea5e9',
@@ -171,9 +173,9 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
           </InputLabel>
           <StyledSelect
             labelId="target-currency-label"
-            value={targetCurrency}
+            value={selectedCurrency}
             label="Target Currency"
-            onChange={(e) => onTargetCurrencyChange(e.target.value as string)}
+            onChange={(e) => setSelectedCurrency(e.target.value as string)}
             IconComponent={KeyboardArrowDownIcon}
           >
             {commonCurrencies.map((currency) => (
@@ -199,7 +201,7 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
           mt: 3,
         }}>
           {/* Quick continue with current currency */}
-          {targetCurrency === sourceCurrency && (
+          {selectedCurrency === sourceCurrency && (
             <Button
               variant="contained"
               size="large"
@@ -219,7 +221,7 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
                   transform: 'translateY(-1px)',
                 },
               }}
-              onClick={() => onTargetCurrencyChange(targetCurrency)}
+              onClick={() => onTargetCurrencyChange(selectedCurrency)}
               endIcon={<ArrowForwardIosIcon />}
             >
               Continue with {sourceCurrency}
@@ -227,13 +229,13 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
           )}
           
           {/* Convert to different currency */}
-          {targetCurrency !== sourceCurrency && (
+          {selectedCurrency !== sourceCurrency && (
             <NextButton
               variant="contained"
               endIcon={<ArrowForwardIosIcon />}
-              onClick={() => onTargetCurrencyChange(targetCurrency)}
+              onClick={() => onTargetCurrencyChange(selectedCurrency)}
             >
-              Convert to {targetCurrency}
+              Convert to {selectedCurrency}
             </NextButton>
           )}
         </Box>

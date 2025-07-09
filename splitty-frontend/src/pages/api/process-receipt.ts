@@ -24,6 +24,8 @@ interface ReceiptItem {
   quantity: number;
   price: number;
   currency: string;
+  isSpecialItem?: boolean; // For tax, tip, service charges
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 interface ProcessReceiptResponse {
@@ -31,6 +33,7 @@ interface ProcessReceiptResponse {
   total: number;
   currency: string;
   language: string;
+  subtotal?: number; // Pre-tax subtotal
 }
 
 interface ProcessedItem {
@@ -40,6 +43,8 @@ interface ProcessedItem {
   total: number;
   converted_price?: number;
   converted_total?: number;
+  isSpecialItem?: boolean;
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 async function processReceiptWithGPT(imageBase64?: string, receiptText?: string): Promise<ProcessReceiptResponse> {
@@ -51,11 +56,18 @@ async function processReceiptWithGPT(imageBase64?: string, receiptText?: string)
    - price per unit in ORIGINAL currency (not total)
    - If the total price is listed (e.g. 3 items for $7.50), infer unit price as 7.50 / 3
 
-2. Detect the original currency of the receipt (USD, EUR, GBP, etc.)
+2. Extract tax, tips, service charges, and discounts as separate line items:
+   - Tax (sales tax, VAT, HST, etc.)
+   - Tips/gratuity (automatic gratuity, service charge)
+   - Service charges, delivery fees
+   - Discounts (negative amounts)
+   - Mark these as special items
 
-3. Calculate the total amount in ORIGINAL currency
+3. Calculate subtotal (before tax and tips) and total (final amount)
 
-4. Detect the original language of the receipt
+4. Detect the original currency of the receipt (USD, EUR, GBP, etc.)
+
+5. Detect the original language of the receipt
 
 Return the information in this exact JSON format:
 {
@@ -64,10 +76,28 @@ Return the information in this exact JSON format:
       "name": "item name in English",
       "quantity": 1,
       "price": 0.00,
-      "currency": "USD"
+      "currency": "USD",
+      "isSpecialItem": false
+    },
+    {
+      "name": "Tax",
+      "quantity": 1,
+      "price": 2.50,
+      "currency": "USD",
+      "isSpecialItem": true,
+      "specialType": "tax"
+    },
+    {
+      "name": "Tip",
+      "quantity": 1,
+      "price": 3.00,
+      "currency": "USD",
+      "isSpecialItem": true,
+      "specialType": "tip"
     }
   ],
-  "total": 0.00,
+  "subtotal": 15.00,
+  "total": 20.50,
   "currency": "USD",
   "language": "detected language"
 }
@@ -79,7 +109,11 @@ Important:
 - Detect currency from symbols ($, €, £, ¥, etc.) or context
 - If quantity is not specified, default to 1
 - Always calculate unit price, not total price for items
-- Be precise with decimal places for prices`;
+- Be precise with decimal places for prices
+- Identify tax/tip/service charges and mark them as special items
+- Calculate subtotal (before tax) and total (final amount)
+- Special items should have quantity=1 and price=total amount
+- Look for keywords like: tax, VAT, HST, GST, tip, gratuity, service charge, delivery fee, discount`;
 
   try {
     const messageContent = [];
@@ -184,6 +218,13 @@ Important:
         if (typeof item.currency !== 'string') {
           throw new Error('Invalid item structure: currency must be a string');
         }
+        if (item.isSpecialItem !== undefined && typeof item.isSpecialItem !== 'boolean') {
+          throw new Error('Invalid item structure: isSpecialItem must be a boolean');
+        }
+        if (item.specialType !== undefined && 
+            !['tax', 'tip', 'service_charge', 'discount'].includes(item.specialType)) {
+          throw new Error('Invalid item structure: specialType must be one of tax, tip, service_charge, discount');
+        }
       }
 
       return parsedResponse;
@@ -212,14 +253,17 @@ async function convertPrices(
       `https://api.freecurrencyapi.com/v1/latest?apikey=${process.env.FREECURRENCY_API_KEY}&currencies=${toCurrency}&base_currency=${fromCurrency}`
     );
 
-    const rate = response.data.data[toCurrency];
+    const rawRate = response.data.data[toCurrency];
     
-    if (!rate) {
+    if (!rawRate) {
       console.error(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
       return items;
     }
 
-    console.log(`Exchange rate ${fromCurrency} to ${toCurrency}: ${rate}`);
+    // Round the exchange rate to 3 decimal places for more predictable calculations
+    const rate = Number(rawRate.toFixed(2));
+
+    console.log(`Exchange rate ${fromCurrency} to ${toCurrency}: ${rawRate} → rounded to ${rate}`);
 
     return items.map(item => ({
       ...item,
@@ -275,9 +319,23 @@ export default async function handler(
 
     console.log('Successfully processed receipt:', result);
 
+    // Transform the items to match the frontend expected format
+    const transformedItems = result.items.map(item => ({
+      item: item.name,
+      price: item.price,
+      qty: item.quantity,
+      total: item.price * item.quantity,
+      isSpecialItem: item.isSpecialItem || false,
+      specialType: item.specialType
+    }));
+
     return res.status(200).json({
       success: true,
-      ...result
+      items: transformedItems,
+      total: result.total,
+      currency: result.currency,
+      language: result.language,
+      subtotal: result.subtotal
     });
 
   } catch (error) {

@@ -8,6 +8,8 @@ interface Item {
   converted_price?: number;
   converted_total?: number;
   shared_by?: string[];
+  isSpecialItem?: boolean;
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
 }
 
 interface SplitBillRequest {

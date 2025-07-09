@@ -2,5 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/": "pages/index.js"
+  "/api/split-bill": "pages/api/split-bill.js",
+  "/api/process-receipt": "pages/api/process-receipt.js",
+  "/": "pages/index.js",
+  "/api/convert-currency": "pages/api/convert-currency.js"
 }
