@@ -3,14 +3,27 @@ import { Box, Container, Typography, Button, useTheme, useMediaQuery } from '@mu
 import { styled } from '@mui/material/styles';
 import ReceiptProcessor from './components/ReceiptProcessor';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   minHeight: '100vh',
+  maxWidth: '100vw',
   display: 'flex',
   flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
   padding: theme.spacing(2),
+  backgroundColor: theme.palette.background.default,
+  color: theme.palette.text.primary,
+  margin: 0,
+  width: '100%',
+  overflowX: 'hidden',
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(3),
+  },
   [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(1),
+    minHeight: '100vh',
   },
 }));
 
@@ -18,6 +31,10 @@ const Header = styled(Box)(({ theme }) => ({
   textAlign: 'center',
   marginBottom: theme.spacing(4),
   marginTop: theme.spacing(2),
+  [theme.breakpoints.up('sm')]: {
+    marginBottom: theme.spacing(6),
+    marginTop: theme.spacing(4),
+  },
 }));
 
 const Logo = styled(Box)(({ theme }) => ({
@@ -25,48 +42,90 @@ const Logo = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   marginBottom: theme.spacing(2),
+  flexWrap: 'wrap',
+  gap: theme.spacing(1),
   '& svg': {
-    fontSize: '3rem',
+    fontSize: 'clamp(2.5rem, 8vw, 4rem)',
     color: theme.palette.primary.main,
-    marginRight: theme.spacing(1),
+  },
+  [theme.breakpoints.up('sm')]: {
+    marginBottom: theme.spacing(3),
+    '& svg': {
+      marginRight: theme.spacing(1),
+    },
   },
 }));
 
 const UploadButton = styled(Button)(({ theme }) => ({
   padding: theme.spacing(1.5, 4),
-  borderRadius: theme.spacing(2),
+  borderRadius: theme.spacing(2.5),
   textTransform: 'none',
-  fontSize: '1.1rem',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  fontSize: 'clamp(1rem, 3vw, 1.2rem)',
+  fontWeight: 700,
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.2)',
+  maxWidth: '280px',
+  width: '100%',
   '&:hover': {
-    boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.3)',
+    transform: 'translateY(-1px)',
+  },
+  transition: 'all 0.3s ease',
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(2, 6),
+    borderRadius: theme.spacing(3),
+    fontSize: '1.2rem',
+    boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)',
+    '&:hover': {
+      boxShadow: '0 12px 35px rgba(59, 130, 246, 0.4)',
+      transform: 'translateY(-2px)',
+    },
   },
 }));
 
-const GradientTitle = styled('span')(({ theme }) => ({
-  fontWeight: 700,
-  fontSize: '2.5rem',
-  display: 'inline-block',
-  background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  color: 'transparent',
-  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  position: 'relative',
-  overflow: 'visible',
-  letterSpacing: 1,
-  fontFamily: 'Inter, system-ui, sans-serif',
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: -8,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '60%',
-    height: 3,
-    background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-    borderRadius: 3,
-    opacity: 0.5,
+const MainContent = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: theme.spacing(3),
+  flex: 1,
+  padding: theme.spacing(0, 1),
+  [theme.breakpoints.up('sm')]: {
+    gap: theme.spacing(4),
+    marginTop: theme.spacing(2),
+    padding: theme.spacing(0, 2),
+  },
+}));
+
+const FeatureCard = styled(Box)(({ theme }) => ({
+  backgroundColor: theme.palette.background.paper,
+  padding: theme.spacing(2.5),
+  borderRadius: theme.spacing(2),
+  border: `1px solid ${theme.palette.divider}`,
+  textAlign: 'center',
+  maxWidth: '400px',
+  width: '100%',
+  margin: '0 auto',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(3),
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  },
+}));
+
+const ProcessorContainer = styled(Box)(({ theme }) => ({
+  flex: 1,
+  width: '100%',
+  maxWidth: '100vw',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  overflowX: 'hidden',
+  padding: theme.spacing(0, 0.5),
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(0, 1),
   },
 }));
 
@@ -94,81 +153,132 @@ function App() {
   const handleProcessingComplete = (results: any) => {
     // Handle the completion of receipt processing
     console.log('Processing complete:', results);
-    // You can add additional logic here, such as saving the results or showing a success message
+    // Reset to show the upload screen again
+    setShowProcessor(false);
+    setImageData(null);
   };
 
   return (
-    <StyledContainer maxWidth="md">
-      <Header>
-        <Logo>
-          <ReceiptIcon />
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 700,
-              color: theme.palette.primary.main,
-              letterSpacing: 1,
-              fontSize: '2.5rem',
-              fontFamily: 'Inter, system-ui, sans-serif',
-            }}
-          >
-            Splitty
-          </Typography>
-        </Logo>
-        <Typography 
-          variant="subtitle1" 
-          color="text.secondary"
-          sx={{ mb: 2 }}
-        >
-          Split your receipts with ease
-        </Typography>
-      </Header>
-
+    <StyledContainer maxWidth={false} disableGutters>
       {!showProcessor ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 3,
-            mt: 4,
-            flex: 1,
-          }}
-        >
-          <input
-            accept="image/*"
-            style={{ display: 'none' }}
-            id="receipt-upload"
-            type="file"
-            onChange={handleImageUpload}
-          />
-          <label htmlFor="receipt-upload">
-            <UploadButton
-              variant="contained"
-              size="large"
-              startIcon={<ReceiptIcon />}
+        <>
+          <Header>
+            <Logo>
+              <ReceiptIcon />
+              <Typography 
+                variant="h1" 
+                component="h1" 
+                sx={{ 
+                  fontWeight: 800,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  letterSpacing: 1,
+                  fontSize: 'clamp(2rem, 8vw, 2.5rem)',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  textAlign: 'center',
+                }}
+              >
+                Splitty
+              </Typography>
+            </Logo>
+            <Typography 
+              variant="h5" 
+              color="text.secondary"
+              sx={{ 
+                mb: 2,
+                fontWeight: 400,
+                fontSize: 'clamp(1.1rem, 4vw, 1.5rem)',
+                textAlign: 'center',
+              }}
             >
-              Upload Receipt
-            </UploadButton>
-          </label>
-          <Typography 
-            variant="body2" 
-            color="text.secondary"
-            align="center"
-            sx={{ maxWidth: 400 }}
-          >
-            Take a photo of your receipt or upload an image to split the bill with your friends
-          </Typography>
-        </Box>
+              Split your bills with ease
+            </Typography>
+            <Typography 
+              variant="body1" 
+              color="text.secondary"
+              sx={{ 
+                maxWidth: '600px',
+                margin: '0 auto',
+                lineHeight: 1.6,
+                fontSize: 'clamp(0.9rem, 3vw, 1rem)',
+                textAlign: 'center',
+                padding: theme.spacing(0, 2),
+              }}
+            >
+              Upload a photo of your receipt and let AI automatically extract items and split the bill among your friends
+            </Typography>
+          </Header>
+
+          <MainContent>
+            <input
+              accept="image/*"
+              style={{ display: 'none' }}
+              id="receipt-upload"
+              type="file"
+              onChange={handleImageUpload}
+            />
+            <label htmlFor="receipt-upload">
+              <UploadButton
+                variant="contained"
+                size="large"
+                startIcon={<FileUploadIcon />}
+                component="span"
+              >
+                Upload Receipt
+              </UploadButton>
+            </label>
+
+            <FeatureCard>
+              <Typography 
+                variant="h6" 
+                color="text.primary"
+                sx={{ 
+                  mb: 2, 
+                  fontWeight: 600,
+                  fontSize: 'clamp(1.1rem, 4vw, 1.25rem)',
+                }}
+              >
+                How it works
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  lineHeight: 1.6,
+                  fontSize: 'clamp(0.85rem, 3vw, 0.95rem)',
+                }}
+              >
+                1. Upload a photo of your receipt<br/>
+                2. AI extracts items and prices<br/>
+                3. Add participants<br/>
+                4. Assign items to people<br/>
+                5. Get the split calculation
+              </Typography>
+            </FeatureCard>
+
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ 
+                textAlign: 'center',
+                fontSize: 'clamp(0.75rem, 2.5vw, 0.9rem)',
+                marginTop: theme.spacing(2),
+              }}
+            >
+              Supported formats: JPG, PNG, JPEG
+            </Typography>
+          </MainContent>
+        </>
       ) : (
         imageData && (
-          <Box sx={{ flex: 1, width: '100%' }}>
+          <ProcessorContainer>
             <ReceiptProcessor
               imageData={imageData}
               onComplete={handleProcessingComplete}
             />
-          </Box>
+          </ProcessorContainer>
         )
       )}
     </StyledContainer>

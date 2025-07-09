@@ -8,7 +8,7 @@ const GradientTitle = styled('span')(({ theme }) => ({
   fontWeight: 800,
   fontSize: '2.5rem',
   display: 'inline-block',
-  background: 'linear-gradient(90deg, #3b82f6 0%, #a21caf 100%)',
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   color: 'transparent',
@@ -17,7 +17,7 @@ const GradientTitle = styled('span')(({ theme }) => ({
 }));
 
 const ReceiptShadowWrapper = styled('div')(({ theme }) => ({
-    boxShadow: '0 8px 32px 0 rgba(30,41,59,0.13), 0 1.5px 8px 0 rgba(30,41,59,0.06)',
+    boxShadow: '0 8px 32px 0 rgba(0,0,0,0.2), 0 1.5px 8px 0 rgba(0,0,0,0.1)',
     borderRadius: 20,
     maxWidth: 420,
     width: '100%',
@@ -29,9 +29,9 @@ const ReceiptShadowWrapper = styled('div')(({ theme }) => ({
   }));
 
 const ReceiptContainer = styled('div')(({ theme }) => ({
-  background: '#fcfcfc',
-  border: '1px solid #f1f1f1',
-  boxShadow: '0 4px 18px 0 rgba(30,41,59,0.07)',
+  background: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 4px 18px 0 rgba(0,0,0,0.15)',
   borderRadius: 20,
   padding: `${theme.spacing(4)} ${theme.spacing(5)} ${theme.spacing(4)}`,
   position: 'relative',
@@ -48,21 +48,23 @@ const ReceiptContainer = styled('div')(({ theme }) => ({
 }));
 
 const UploadButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a21caf 100%)',
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
   color: '#fff',
   borderRadius: 16,
   padding: '16px 40px',
   fontWeight: 500,
   fontSize: '1.125rem',
   textTransform: 'none',
-  boxShadow: '0 2px 12px rgba(30,41,59,0.10)',
+  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
   letterSpacing: 0.2,
   transition: 'all 0.2s',
   display: 'inline-flex',
   alignItems: 'center',
   gap: theme.spacing(1.5),
   '&:hover': {
-    background: 'linear-gradient(90deg, #2563eb 0%, #6366f1 50%, #7c3aed 100%)',
+    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
+    transform: 'translateY(-1px)',
   },
 }));
 
@@ -79,7 +81,7 @@ const ReceiptIconCircum = ({ size = 38, style = {} }) => (
     <defs>
       <linearGradient id="receipt-gradient" x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
         <stop stopColor="#3b82f6" />
-        <stop offset="1" stopColor="#a21caf" />
+        <stop offset="1" stopColor="#8b5cf6" />
       </linearGradient>
     </defs>
     <path
@@ -132,7 +134,7 @@ export default function Home() {
             sx={{
                 minHeight: '100vh',
                 width: '100vw',
-                background: 'linear-gradient(to bottom, #f9fafb 0%, #fff 100%)',
+                background: 'background.default',
                 fontFamily: 'Inter, Lato, system-ui, sans-serif',
                 display: 'flex',
                 alignItems: 'center',
@@ -148,7 +150,7 @@ export default function Home() {
                 <Typography
                     variant="subtitle1"
                     sx={{
-                        color: '#7b7b7b',
+                        color: 'text.secondary',
                         fontWeight: 300,
                         fontSize: '0.97rem',
                         mt: 0,
@@ -179,13 +181,13 @@ export default function Home() {
                     <Typography
                         align="center"
                         sx={{
-                            color: '#b0b0b0',
+                            color: 'text.secondary',
                             fontSize: '0.91rem',
                             fontWeight: 300,
                             mt: 5,
                             mb: 0,
                             letterSpacing: 0,
-                            fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+                            fontFamily: 'Inter, system-ui, sans-serif',
                         }}
                     >
                         Supported formats: JPG, PNG, JPEG

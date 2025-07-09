@@ -15,69 +15,20 @@ const commonCurrencies = [
   { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
 ];
 
-const Container = styled(Box)(({ theme }) => ({
-  maxWidth: 480,
-  margin: 'auto',
-  padding: 32,
-  borderRadius: 20,
-  boxShadow: '0 8px 32px rgba(0,0,0,0.05)',
-  background: 'white',
-  position: 'relative',
-  overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: `repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 24px,
-      rgba(0,0,0,0.05) 24px,
-      rgba(0,0,0,0.05) 25px
-    )`,
-    opacity: 0.05,
-    pointerEvents: 'none',
-  },
-}));
-
-const GradientTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 700,
-  fontSize: '1.75rem',
-  marginBottom: 12,
-  background: 'linear-gradient(90deg, #3b82f6 0%, #a21caf 100%)',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  color: 'transparent',
-  textAlign: 'center',
-  letterSpacing: '-0.01em',
-  fontFamily: 'Inter, system-ui, sans-serif',
-}));
-
-const InstructionText = styled(Typography)(({ theme }) => ({
-  fontSize: '1rem',
-  color: '#6b7280',
-  marginBottom: 24,
-  lineHeight: 1.5,
-  textAlign: 'center',
-  fontFamily: 'Inter, system-ui, sans-serif',
-}));
-
 const StyledSelect = styled(Select)(({ theme }) => ({
   '& .MuiSelect-select': {
     padding: '14px 18px',
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: theme.palette.background.default,
     fontSize: '1rem',
     fontFamily: 'Inter, system-ui, sans-serif',
+    color: theme.palette.text.primary,
     '&:focus': {
-      backgroundColor: '#fff',
+      backgroundColor: theme.palette.background.default,
     },
   },
   '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#e5e7eb',
+    borderColor: theme.palette.divider,
     borderRadius: 12,
   },
   '&:hover .MuiOutlinedInput-notchedOutline': {
@@ -92,154 +43,102 @@ const StyledSelect = styled(Select)(({ theme }) => ({
   },
 }));
 
-const NextButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #a21caf 100%)',
-  color: '#fff',
-  borderRadius: 12,
-  padding: '16px 40px',
-  fontWeight: 500,
-  fontSize: '1.125rem',
-  textTransform: 'none',
-  boxShadow: '0 2px 8px rgba(30,41,59,0.07)',
-  letterSpacing: 0.2,
-  transition: 'all 0.2s',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  marginTop: 32,
+const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontSize: '1rem',
+  padding: '12px 18px',
+  color: theme.palette.text.primary,
+  backgroundColor: theme.palette.background.paper,
   '&:hover': {
-    background: 'linear-gradient(90deg, #2563eb 0%, #6366f1 50%, #7c3aed 100%)',
-    boxShadow: '0 4px 12px rgba(30,41,59,0.12)',
+    backgroundColor: theme.palette.action.hover,
+  },
+  '&.Mui-selected': {
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    '&:hover': {
+      backgroundColor: theme.palette.primary.dark,
+    },
+  },
+}));
+
+const StyledFormControl = styled(FormControl)(({ theme }) => ({
+  width: '100%',
+  '& .MuiInputLabel-root': {
+    fontFamily: 'Inter, system-ui, sans-serif',
+    color: theme.palette.text.secondary,
+    '&.Mui-focused': {
+      color: theme.palette.primary.main,
+    },
   },
 }));
 
 interface CurrencySelectorProps {
-  sourceCurrency: string;
-  targetCurrency: string;
-  onTargetCurrencyChange: (currency: string) => void;
+  value: string;
+  onChange: (currency: string) => void;
+  sx?: any;
 }
 
 const CurrencySelector: React.FC<CurrencySelectorProps> = ({
-  sourceCurrency,
-  targetCurrency,
-  onTargetCurrencyChange,
+  value,
+  onChange,
+  sx = {},
 }) => {
-  const [selectedCurrency, setSelectedCurrency] = React.useState(targetCurrency);
+  const [selectedCurrency, setSelectedCurrency] = React.useState(value);
+
+  const handleChange = (newCurrency: string) => {
+    setSelectedCurrency(newCurrency);
+    onChange(newCurrency);
+  };
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      width: '100vw',
-      background: 'linear-gradient(to bottom, #f9fafb 0%, #fff 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 2,
-    }}>
-      <Container>
-        <GradientTitle>
-          Currency Options
-        </GradientTitle>
-        <InstructionText>
-          Receipt processed in {sourceCurrency}. You can continue with {sourceCurrency} or convert to another currency:
-        </InstructionText>
-        
-        {/* Helper text for quick splitting */}
-        {selectedCurrency === sourceCurrency && (
-          <Box sx={{ 
-            background: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: 2,
-            p: 2,
-            mb: 3,
-            textAlign: 'center',
-          }}>
-            <Typography sx={{ 
-              fontSize: '0.875rem',
-              color: '#0c4a6e',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontWeight: 500,
-            }}>
-              💡 Want to split the bill quickly? Just click "Continue with {sourceCurrency}" below!
-            </Typography>
-          </Box>
-        )}
-        <FormControl fullWidth>
-          <InputLabel id="target-currency-label" sx={{ 
-            fontFamily: 'Inter, system-ui, sans-serif',
-            color: '#6b7280',
-          }}>
-            Target Currency
-          </InputLabel>
-          <StyledSelect
-            labelId="target-currency-label"
-            value={selectedCurrency}
-            label="Target Currency"
-            onChange={(e) => setSelectedCurrency(e.target.value as string)}
-            IconComponent={KeyboardArrowDownIcon}
-          >
-            {commonCurrencies.map((currency) => (
-              <MenuItem 
-                key={currency.code} 
-                value={currency.code}
-                sx={{ 
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                  fontSize: '1rem',
-                  padding: '12px 18px',
-                }}
-              >
-                {currency.code} - {currency.name}
-              </MenuItem>
-            ))}
-          </StyledSelect>
-        </FormControl>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'center',
-          gap: 2,
-          mt: 3,
-        }}>
-          {/* Quick continue with current currency */}
-          {selectedCurrency === sourceCurrency && (
-            <Button
-              variant="contained"
-              size="large"
-              sx={{
-                background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
-                color: '#fff',
-                borderRadius: 12,
-                padding: '16px 32px',
-                fontWeight: 600,
-                fontSize: '1.125rem',
-                textTransform: 'none',
-                boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
-                  boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
-                  transform: 'translateY(-1px)',
+    <Box sx={sx}>
+      <StyledFormControl>
+        <InputLabel id="target-currency-label">
+          Target Currency
+        </InputLabel>
+        <StyledSelect
+          labelId="target-currency-label"
+          value={selectedCurrency}
+          label="Target Currency"
+          onChange={(e) => handleChange(e.target.value as string)}
+          IconComponent={KeyboardArrowDownIcon}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                backgroundColor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                boxShadow: 3,
+                maxHeight: 300,
+                '& .MuiMenuItem-root': {
+                  color: 'text.primary',
+                  backgroundColor: 'background.paper',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                  },
                 },
-              }}
-              onClick={() => onTargetCurrencyChange(selectedCurrency)}
-              endIcon={<ArrowForwardIosIcon />}
+              },
+            },
+          }}
+        >
+          {commonCurrencies.map((currency) => (
+            <StyledMenuItem 
+              key={currency.code} 
+              value={currency.code}
             >
-              Continue with {sourceCurrency}
-            </Button>
-          )}
-          
-          {/* Convert to different currency */}
-          {selectedCurrency !== sourceCurrency && (
-            <NextButton
-              variant="contained"
-              endIcon={<ArrowForwardIosIcon />}
-              onClick={() => onTargetCurrencyChange(selectedCurrency)}
-            >
-              Convert to {selectedCurrency}
-            </NextButton>
-          )}
-        </Box>
-      </Container>
+              {currency.code} - {currency.name}
+            </StyledMenuItem>
+          ))}
+        </StyledSelect>
+      </StyledFormControl>
     </Box>
   );
 };

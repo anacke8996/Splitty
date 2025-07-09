@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import App from './App';
 import theme from './theme';
+import './styles/globals.css';
 
 // Add Inter font
 const link = document.createElement('link');
