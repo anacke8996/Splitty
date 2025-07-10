@@ -25,9 +25,13 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Fade,
+  Slide,
+  Zoom,
+  Collapse
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 import SwipeableViews from 'react-swipeable-views';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -39,7 +43,57 @@ import { API_ENDPOINTS } from '../config/api';
 import Switch from '@mui/material/Switch';
 import GroupIcon from '@mui/icons-material/Group';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import PersonIcon from '@mui/icons-material/Person';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CurrencySelector from './CurrencySelector';
+
+// Keyframe animations
+const gradientAnimation = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+const pulseAnimation = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+`;
+
+const slideInUp = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`;
+
+const checkmarkAnimation = keyframes`
+  0% { transform: scale(0) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
+`;
+
+const countUpAnimation = keyframes`
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const shimmerAnimation = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+`;
+
+const pulseGlow = keyframes`
+  0% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.3); }
+`;
+
+
 
 interface ReceiptItem {
   item: string;
@@ -50,7 +104,7 @@ interface ReceiptItem {
   converted_total?: number;
   shared_by?: string[];
   isSpecialItem?: boolean;
-  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount' | 'total';
 }
 
 interface ReceiptProcessorProps {
@@ -167,6 +221,13 @@ const IndividualReceiptCard = styled(Box)(({ theme }) => ({
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
+  animation: `${slideInUp} 0.6s ease-out`,
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+  },
   [theme.breakpoints.up('sm')]: {
     padding: theme.spacing(3.5),
     borderRadius: theme.spacing(2),
@@ -252,7 +313,109 @@ const LoadingCard = styled(Box)(({ theme }) => ({
   width: '100%',
   boxSizing: 'border-box',
   border: `1px solid ${theme.palette.divider}`,
+  animation: `${slideInUp} 0.5s ease-out`,
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: '-100%',
+    width: '100%',
+    height: '100%',
+    background: `linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent)`,
+    animation: `${shimmerAnimation} 2s infinite`,
+  },
 }));
+
+const AnimatedGradientText = styled(Typography)(({ theme }) => ({
+  background: `linear-gradient(-45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main}, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
+  backgroundSize: '400% 400%',
+  animation: `${gradientAnimation} 3s ease infinite`,
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  backgroundClip: 'text',
+  fontWeight: 'bold',
+}));
+
+const PulsingCheckbox = styled(Checkbox)(({ theme }) => ({
+  transition: 'all 0.3s ease',
+  '&.Mui-checked': {
+    animation: `${pulseAnimation} 0.3s ease`,
+    '& .MuiSvgIcon-root': {
+      animation: `${checkmarkAnimation} 0.5s ease`,
+    },
+  },
+  '&:hover': {
+    transform: 'scale(1.1)',
+  },
+}));
+
+const AnimatedButton = styled(Button)(({ theme }) => ({
+  transition: 'all 0.3s ease',
+  position: 'relative',
+  overflow: 'hidden',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)',
+  },
+  '&:active': {
+    transform: 'translateY(0)',
+  },
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: '-100%',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
+    transition: 'left 0.5s ease',
+  },
+  '&:hover::before': {
+    left: '100%',
+  },
+}));
+
+const SummaryCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  margin: theme.spacing(2),
+  maxWidth: 'min(480px, 95vw)',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  background: theme.palette.background.paper,
+  borderRadius: theme.spacing(2),
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+  width: '100%',
+  boxSizing: 'border-box',
+  border: `1px solid ${theme.palette.divider}`,
+  animation: `${slideInUp} 0.6s ease-out`,
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(5),
+    margin: theme.spacing(2),
+    borderRadius: theme.spacing(3),
+  },
+}));
+
+const ParticipantCard = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  py: theme.spacing(3),
+  px: theme.spacing(3),
+  mb: theme.spacing(2),
+  borderRadius: theme.spacing(2),
+  background: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    borderColor: theme.palette.primary.light,
+  },
+}));
+
+
 
 const formatCurrency = (amount: number, currency: string) => {
   return new Intl.NumberFormat('en-US', {
@@ -262,6 +425,8 @@ const formatCurrency = (amount: number, currency: string) => {
     maximumFractionDigits: 2,
   }).format(amount);
 };
+
+
 
 const steps = ['Processing', 'Add Names', 'Assign Items', 'Summary'];
 
@@ -278,6 +443,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [inputError, setInputError] = useState(false);
   const [userTotals, setUserTotals] = useState<Record<string, number>>({});
   const [currentParticipantIndex, setCurrentParticipantIndex] = useState(0);
+  const [taxIncluded, setTaxIncluded] = useState<boolean>(false);
+  const [taxInclusionReason, setTaxInclusionReason] = useState<string>('');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -285,22 +452,126 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     processReceipt();
   }, [imageData]);
 
+  // Validate and fix potentially misclassified items
+  const validateItemClassification = (item: ReceiptItem, isTaxIncluded: boolean = taxIncluded, taxReason: string = taxInclusionReason): ReceiptItem | null => {
+    const itemName = item.item.toLowerCase();
+    
+    // Total/subtotal line patterns that should be filtered out entirely
+    const totalLinePatterns = [
+      'total', 'subtotal', 'sub total', 'sub-total',
+      'total service', 'total servicio', 'service total', 'servicio total',
+      'total amount', 'amount total', 'grand total', 'final total',
+      'total bill', 'bill total', 'total due', 'due total',
+      'total payable', 'payable total', 'total a pagar',
+      'suma total', 'importe total', 'montant total'
+    ];
+    
+    // Check if this is a total/subtotal line that should be filtered out
+    // These usually have prices close to or equal to the total bill amount
+    const isTotalLine = totalLinePatterns.some(pattern => 
+      itemName === pattern || 
+      itemName.includes(pattern) || 
+      itemName.replace(/\s+/g, '').includes(pattern.replace(/\s+/g, ''))
+    );
+    
+    if (isTotalLine) {
+      console.log(`🚫 Filtering out total/subtotal line: "${item.item}" (${item.price})`);
+      return null; // This will be filtered out
+    }
+    
+    // Filter out total/subtotal items since they're summary lines
+    if (item.isSpecialItem && item.specialType === 'total') {
+      console.log(`🚫 Filtering out total line: "${item.item}" (${item.price})`);
+      return null; // Total lines are summary, not splittable items
+    }
+    
+    // Filter out tax items if tax is already included in item prices
+    if (item.isSpecialItem && item.specialType === 'tax' && isTaxIncluded) {
+      console.log(`🏷️ Filtering out included tax: "${item.item}" (${item.price}) - ${taxReason}`);
+      return null; // Tax is already included in item prices, don't split separately
+    }
+    
+    // Legitimate services that should NOT be special items
+    const legitimateServices = [
+      'room service', 'cleaning service', 'laundry service', 'concierge service', 
+      'valet service', 'spa service', 'massage', 'tour service', 'shuttle service',
+      'car service', 'servicio de habitación', 'servicio de limpieza', 
+      'servicio de lavandería', 'servicio de spa', 'servicio de tour',
+      'total servicio', 'subtotal service', 'service total', 'total service'
+    ];
+    
+    // True service charges/fees that should be special items
+    const realServiceCharges = [
+      'service charge', 'service fee', 'svc charge', 'svc fee',
+      'cargo por servicio', 'frais de service', 'delivery fee',
+      'convenience fee', 'booking fee', 'processing fee', 'handling fee',
+      'corkage fee', 'cover charge', 'facility fee', 'administrative fee'
+    ];
+    
+    // If it's marked as a service charge but is actually a legitimate service
+    if (item.isSpecialItem && item.specialType === 'service_charge') {
+      const isLegitimateService = legitimateServices.some(service => 
+        itemName.includes(service) || itemName.includes(service.replace(' ', ''))
+      );
+      
+      if (isLegitimateService) {
+        return {
+          ...item,
+          isSpecialItem: false,
+          specialType: undefined
+        };
+      }
+    }
+    
+    // If it's not marked as special but should be
+    if (!item.isSpecialItem) {
+      const isRealServiceCharge = realServiceCharges.some(charge => 
+        itemName.includes(charge) || itemName.includes(charge.replace(' ', ''))
+      );
+      
+      if (isRealServiceCharge) {
+        return {
+          ...item,
+          isSpecialItem: true,
+          specialType: 'service_charge'
+        };
+      }
+    }
+    
+    return item;
+  };
+
   // Initialize special items to be assigned to all participants when participants change
   React.useEffect(() => {
     if (participants.length > 0) {
       const updatedItems = items.map(item => {
-        if (item.isSpecialItem) {
-          // Always assign special items to all participants
-          return {
-            ...item,
-            shared_by: [...participants]
-          };
+        const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
+        if (validatedItem && validatedItem.isSpecialItem) {
+          // For separate tax (American style), auto-assign tax to all participants
+          if (validatedItem.specialType === 'tax' && !taxIncluded) {
+            console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
+            return {
+              ...validatedItem,
+              shared_by: [...participants]
+            };
+          }
+          // For other special items (tips, service charges), also auto-assign
+          else if (validatedItem.specialType !== 'tax') {
+            return {
+              ...validatedItem,
+              shared_by: [...participants]
+            };
+          }
+          // For included tax, don't auto-assign (it's filtered out anyway)
+          else {
+            return validatedItem;
+          }
         }
-        return item;
-      });
+        return validatedItem;
+      }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
       setItems(updatedItems);
     }
-      }, [participants]);
+      }, [participants, taxIncluded]);
 
     const processReceipt = async () => {
     try {
@@ -318,17 +589,44 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       const data = await response.json();
       
       if (data.success) {
-        const convertedItems = data.items.map((item: any) => ({
-          item: item.item,
-          price: item.price,
-          qty: item.qty,
-          total: item.total,
-          converted_price: item.price,
-          converted_total: item.total,
-          isSpecialItem: item.isSpecialItem || false,
-          specialType: item.specialType,
-          shared_by: (item.isSpecialItem && participants.length > 0) ? [...participants] : [] // Auto-assign special items to existing participants
-        }));
+        // Set tax inclusion information first, so validation function can use it
+        setTaxIncluded(data.taxIncluded || false);
+        setTaxInclusionReason(data.taxInclusionReason || '');
+        
+        console.log(`🏷️ Tax handling: ${data.taxIncluded ? 'INCLUDED' : 'SEPARATE'}`);
+        console.log(`📝 Reason: ${data.taxInclusionReason}`);
+        
+        const convertedItems = data.items.map((item: any) => {
+          const baseItem = {
+            item: item.item,
+            price: item.price,
+            qty: item.qty,
+            total: item.total,
+            converted_price: item.price,
+            converted_total: item.total,
+            isSpecialItem: item.isSpecialItem || false,
+            specialType: item.specialType,
+            shared_by: [] // Will be set below based on tax detection
+          };
+          
+          // Validate item classification (will filter out included tax)
+          const validatedItem = validateItemClassification(baseItem, data.taxIncluded || false, data.taxInclusionReason || '');
+          
+          // Auto-assign special items based on tax detection
+          if (validatedItem && validatedItem.isSpecialItem && participants.length > 0) {
+            // For separate tax (American style), auto-assign tax to all participants
+            if (validatedItem.specialType === 'tax' && !data.taxIncluded) {
+              validatedItem.shared_by = [...participants];
+              console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
+            }
+            // For other special items (tips, service charges), also auto-assign
+            else if (validatedItem.specialType !== 'tax') {
+              validatedItem.shared_by = [...participants];
+            }
+          }
+          
+          return validatedItem;
+        }).filter(item => item !== null); // Filter out null items (total/subtotal lines and included tax)
         
         setItems(convertedItems);
         setSourceCurrency(data.currency);
@@ -395,13 +693,28 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       const newParticipantName = newParticipant.trim();
       setParticipants([...participants, newParticipantName]);
       
-      // Automatically assign all special items to the new participant
+      // Automatically assign special items to the new participant based on tax detection
       const updatedItems = items.map(item => {
         if (item.isSpecialItem) {
-          return {
-            ...item,
-            shared_by: [...(item.shared_by || []), newParticipantName]
-          };
+          // For separate tax (American style), auto-assign to new participant
+          if (item.specialType === 'tax' && !taxIncluded) {
+            console.log(`💰 Auto-assigning separate tax "${item.item}" to new participant: ${newParticipantName}`);
+            return {
+              ...item,
+              shared_by: [...(item.shared_by || []), newParticipantName]
+            };
+          }
+          // For other special items (tips, service charges), also auto-assign
+          else if (item.specialType !== 'tax') {
+            return {
+              ...item,
+              shared_by: [...(item.shared_by || []), newParticipantName]
+            };
+          }
+          // For included tax, don't auto-assign (it should be filtered out)
+          else {
+            return item;
+          }
         }
         return item;
       });
@@ -588,15 +901,25 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   if (loading) {
     return (
       <LoadingContainer>
-        <LoadingCard>
-          <CircularProgress size={40} sx={{ color: 'primary.main', mb: 2 }} />
-          <Typography variant="h6" color="text.primary" sx={{ mb: 1 }}>
-            Processing Receipt...
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            AI is extracting items and prices from your receipt
-          </Typography>
-        </LoadingCard>
+        <Fade in timeout={600}>
+          <LoadingCard>
+            <CircularProgress 
+              size={50} 
+              thickness={4}
+              sx={{ 
+                color: 'primary.main', 
+                mb: 3,
+                animation: `${pulseAnimation} 2s ease-in-out infinite`
+              }} 
+            />
+            <AnimatedGradientText variant="h5" sx={{ mb: 2, textAlign: 'center' }}>
+              Processing Receipt...
+            </AnimatedGradientText>
+            <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center' }}>
+              AI is extracting items and prices from your receipt
+            </Typography>
+          </LoadingCard>
+        </Fade>
       </LoadingContainer>
     );
   }
@@ -612,21 +935,29 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         padding: 2 
       }}>
         <Box sx={{ maxWidth: 440, width: '100%' }}>
-          <ReceiptCard>
-            <Typography variant="h6" color="error.main" sx={{ mb: 2 }}>
-              Error
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              {error}
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={() => window.location.reload()}
-              fullWidth
-            >
-              Try Again
-            </Button>
-          </ReceiptCard>
+          <Fade in timeout={600}>
+            <ReceiptCard>
+              <Box sx={{ textAlign: 'center', mb: 3 }}>
+                <Typography variant="h2" sx={{ mb: 2 }}>
+                  😔
+                </Typography>
+                <Typography variant="h5" color="error.main" sx={{ mb: 2, fontWeight: 'bold' }}>
+                  Oops! Something went wrong
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  {error}
+                </Typography>
+              </Box>
+              <AnimatedButton
+                variant="contained"
+                onClick={() => window.location.reload()}
+                fullWidth
+                sx={{ py: 2 }}
+              >
+                Try Again
+              </AnimatedButton>
+            </ReceiptCard>
+          </Fade>
         </Box>
       </Box>
     );
@@ -648,25 +979,22 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             Currency Options
           </Typography>
           
-          <Box sx={{ mb: 3, textAlign: 'center' }}>
-            <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
-              Receipt processed in:
-            </Typography>
-            <Typography variant="h5" sx={{ 
-              fontWeight: 'bold', 
-              color: 'primary.main', 
-              mb: 2,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>
-              {sourceCurrency}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              You can continue with {sourceCurrency} or convert to another currency below:
-            </Typography>
-          </Box>
+          <Slide direction="up" in timeout={800}>
+            <Box sx={{ mb: 3, textAlign: 'center' }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary', mb: 1 }}>
+                Receipt processed in:
+              </Typography>
+              <AnimatedGradientText variant="h4" sx={{ 
+                mb: 2,
+                animation: `${countUpAnimation} 0.8s ease-out, ${gradientAnimation} 3s ease infinite`,
+              }}>
+                {sourceCurrency}
+              </AnimatedGradientText>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                You can continue with {sourceCurrency} or convert to another currency below:
+              </Typography>
+            </Box>
+          </Slide>
 
           <Box sx={{ mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', background: 'background.default' }}>
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', mb: 1 }}>
@@ -674,21 +1002,32 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             </Typography>
           </Box>
 
+          {taxInclusionReason && (
+            <Box sx={{ mb: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: taxIncluded ? 'success.main' : 'info.main', background: 'background.default' }}>
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary', fontWeight: 500, mb: 0.5 }}>
+                {taxIncluded ? '🏷️ Tax Included' : '📊 Tax Separate'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+                {taxInclusionReason}
+              </Typography>
+            </Box>
+          )}
+
           <CurrencySelector
             value={targetCurrency}
             onChange={handleCurrencyChange}
             sx={{ mb: 3 }}
           />
 
-          <Button
+          <AnimatedButton
             variant="contained"
             onClick={() => handleCurrencyChange(targetCurrency)}
             fullWidth
-            sx={{ py: 2 }}
+            sx={{ py: 2.5, fontSize: '1.1rem' }}
             endIcon={<ArrowForwardIosIcon />}
           >
             Continue with {targetCurrency}
-          </Button>
+          </AnimatedButton>
         </ReceiptCard>
         </Box>
       </Box>
@@ -782,7 +1121,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
+            <AnimatedButton
               variant="outlined"
               onClick={() => setCurrentStep('currency')}
               startIcon={<ArrowBackIcon />}
@@ -790,8 +1129,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               sx={{ py: 2 }}
             >
               Back
-            </Button>
-            <Button
+            </AnimatedButton>
+            <AnimatedButton
               variant="contained"
               onClick={() => {
                 setCurrentParticipantIndex(0);
@@ -803,7 +1142,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               sx={{ py: 2 }}
             >
               Continue
-            </Button>
+            </AnimatedButton>
           </Box>
         </ReceiptCard>
         </Box>
@@ -830,9 +1169,28 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           ))}
         </StepperBar>
 
-        <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', textAlign: 'center', fontSize: '0.8rem' }}>
-          {getAssignmentProgress()}% of items assigned
-        </Typography>
+        <Box sx={{ mb: 2, textAlign: 'center' }}>
+          <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary', fontSize: '0.8rem' }}>
+            {getAssignmentProgress()}% of items assigned
+          </Typography>
+          <Box sx={{ 
+            width: '100%', 
+            height: 4, 
+            backgroundColor: 'divider', 
+            borderRadius: 2,
+            overflow: 'hidden',
+            mb: 1,
+          }}>
+            <Box sx={{ 
+              height: '100%', 
+              width: `${getAssignmentProgress()}%`,
+              backgroundColor: 'primary.main',
+              transition: 'width 0.5s ease',
+              borderRadius: 2,
+              animation: getAssignmentProgress() === 100 ? `${pulseAnimation} 1s ease-in-out` : 'none',
+            }} />
+          </Box>
+        </Box>
 
         <SwipeableViews
           axis={theme.direction === 'rtl' ? 'x-reverse' : 'x'}
@@ -846,12 +1204,19 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               <IndividualReceiptCard>
                 <ReceiptHeader>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                      {participant}'s Receipt
-                    </Typography>
-                    <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                      {formatCurrency(getParticipantTotal(participant), targetCurrency)}
-                    </Typography>
+                    <Fade in timeout={1000}>
+                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                        {participant}'s Receipt
+                      </Typography>
+                    </Fade>
+                    <Zoom in timeout={1200}>
+                      <AnimatedGradientText variant="h4" sx={{ 
+                        fontWeight: 600,
+                        animation: `${countUpAnimation} 0.8s ease-out, ${gradientAnimation} 4s ease infinite`,
+                      }}>
+                        {formatCurrency(getParticipantTotal(participant), targetCurrency)}
+                      </AnimatedGradientText>
+                    </Zoom>
                   </Box>
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
@@ -944,9 +1309,72 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                py: 0.25,
                                fontSize: '0.7rem',
                                fontWeight: 600,
-                               textTransform: 'uppercase'
-                             }}>
+                               textTransform: 'uppercase',
+                               cursor: 'pointer',
+                               transition: 'all 0.2s ease',
+                               '&:hover': {
+                                 opacity: 0.8,
+                                 transform: 'scale(0.95)',
+                               }
+                             }}
+                             onClick={() => {
+                               // Toggle special item status
+                               const updatedItems = items.map((it, idx) => {
+                                 if (idx === itemIndex) {
+                                   return {
+                                     ...it,
+                                     isSpecialItem: false,
+                                     specialType: undefined,
+                                     shared_by: [] // Clear assignments when changing to regular item
+                                   };
+                                 }
+                                 return it;
+                               });
+                               setItems(updatedItems);
+                             }}
+                             title="Click to change to regular item"
+                             >
                                {isTaxItem ? 'TAX' : 'SERVICE'}
+                             </Box>
+                           )}
+                           {!isSpecialItem && (item.item.toLowerCase().includes('service') || item.item.toLowerCase().includes('servicio')) && (
+                             <Box sx={{ 
+                               backgroundColor: 'action.hover',
+                               color: 'text.secondary',
+                               borderRadius: '4px',
+                               px: 0.5,
+                               py: 0.25,
+                               fontSize: '0.7rem',
+                               fontWeight: 600,
+                               textTransform: 'uppercase',
+                               cursor: 'pointer',
+                               transition: 'all 0.2s ease',
+                               border: '1px dashed',
+                               borderColor: 'divider',
+                               '&:hover': {
+                                 backgroundColor: 'warning.light',
+                                 color: 'warning.contrastText',
+                                 borderColor: 'warning.main',
+                               }
+                             }}
+                             onClick={() => {
+                               // Convert to service charge
+                               const updatedItems = items.map((it, idx) => {
+                                 if (idx === itemIndex) {
+                                   return {
+                                     ...it,
+                                     isSpecialItem: true,
+                                     specialType: 'service_charge' as const,
+                                     shared_by: [...participants] // Auto-assign to all participants
+                                   };
+                                 }
+                                 return it;
+                               });
+                               setItems(updatedItems);
+                             }}
+                             title="Click to mark as service charge"
+                             >
+                               SERVICE?
                              </Box>
                            )}
                          </Box>
@@ -970,7 +1398,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                              : formatCurrency((item.converted_price || item.price) * item.qty, targetCurrency)
                            }
                          </Typography>
-                         <StyledCheckbox
+                         <PulsingCheckbox
                            checked={getCheckboxState(item, participant)}
                            onChange={() => toggleItemAssignment(itemIndex, participant)}
                            size="medium"
@@ -991,44 +1419,77 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                    <Box sx={{ mt: 'auto', pt: 2 }}>
            {participants.length > 1 && (
              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 2 }}>
-               <Button 
-                 size="small" 
+               <IconButton 
                  onClick={handleParticipantBack}
                  disabled={currentParticipantIndex === 0}
-                 sx={{ fontSize: '0.8rem', py: 0.5, minWidth: 'auto' }}
+                 sx={{ 
+                   width: 40,
+                   height: 40,
+                   backgroundColor: 'background.paper',
+                   border: '1px solid',
+                   borderColor: 'divider',
+                   transition: 'all 0.3s ease',
+                   '&:hover': {
+                     backgroundColor: 'primary.main',
+                     transform: 'translateY(-2px)',
+                     boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+                   },
+                   '&:disabled': {
+                     opacity: 0.3,
+                   },
+                 }}
                >
-                 <KeyboardArrowLeft sx={{ fontSize: '1rem' }} />
-               </Button>
+                 <KeyboardArrowLeft sx={{ color: 'text.primary' }} />
+               </IconButton>
                
                <Box sx={{ display: 'flex', gap: 0.5 }}>
                  {participants.map((_, index) => (
                    <Box
                      key={index}
                      sx={{
-                       width: 8,
-                       height: 8,
+                       width: 10,
+                       height: 10,
                        borderRadius: '50%',
                        backgroundColor: index === currentParticipantIndex ? 'primary.main' : 'divider',
                        cursor: 'pointer',
+                       transition: 'all 0.3s ease',
+                       '&:hover': {
+                         transform: 'scale(1.2)',
+                         backgroundColor: index === currentParticipantIndex ? 'primary.dark' : 'primary.light',
+                       },
                      }}
                      onClick={() => setCurrentParticipantIndex(index)}
                    />
                  ))}
                </Box>
                
-               <Button 
-                 size="small" 
+               <IconButton 
                  onClick={handleParticipantNext}
                  disabled={currentParticipantIndex === participants.length - 1}
-                 sx={{ fontSize: '0.8rem', py: 0.5, minWidth: 'auto' }}
+                 sx={{ 
+                   width: 40,
+                   height: 40,
+                   backgroundColor: 'background.paper',
+                   border: '1px solid',
+                   borderColor: 'divider',
+                   transition: 'all 0.3s ease',
+                   '&:hover': {
+                     backgroundColor: 'primary.main',
+                     transform: 'translateY(-2px)',
+                     boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+                   },
+                   '&:disabled': {
+                     opacity: 0.3,
+                   },
+                 }}
                >
-                 <KeyboardArrowRight sx={{ fontSize: '1rem' }} />
-               </Button>
+                 <KeyboardArrowRight sx={{ color: 'text.primary' }} />
+               </IconButton>
              </Box>
            )}
 
            <Box sx={{ display: 'flex', gap: 1.5 }}>
-             <Button
+             <AnimatedButton
                variant="outlined"
                onClick={() => setCurrentStep('participants')}
                startIcon={<ArrowBackIcon />}
@@ -1036,8 +1497,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                sx={{ py: 1.5, fontSize: '0.9rem' }}
              >
                Back
-             </Button>
-             <Button
+             </AnimatedButton>
+             <AnimatedButton
                variant="contained"
                onClick={calculateBill}
                disabled={hasUnassignedItems()}
@@ -1046,7 +1507,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                sx={{ py: 1.5, fontSize: '0.9rem' }}
              >
                Calculate Split
-             </Button>
+             </AnimatedButton>
            </Box>
          </Box>
       </Box>
@@ -1072,96 +1533,209 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             ))}
           </StepperBar>
 
-        <ReceiptCard>
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
-            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'text.primary' }}>
-              Bill Summary
-            </Typography>
-          </Box>
+        <Zoom in timeout={800}>
+          <SummaryCard>
+            {/* Header Section */}
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
+              <Fade in timeout={800}>
+                <Box sx={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.dark})`,
+                  color: 'success.contrastText',
+                  mb: 2,
+                  boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+                }}>
+                  <CheckCircleIcon sx={{ fontSize: 36 }} />
+                </Box>
+              </Fade>
+              <Fade in timeout={1000}>
+                <Typography variant="h4" sx={{ 
+                  fontWeight: 600, 
+                  mb: 1, 
+                  color: 'text.primary',
+                }}>
+                  Split Complete!
+                </Typography>
+              </Fade>
+              <Fade in timeout={1200}>
+                <Typography variant="body1" sx={{ 
+                  color: 'text.secondary',
+                  fontWeight: 400,
+                }}>
+                  Here's who owes what
+                </Typography>
+              </Fade>
+            </Box>
 
-          <Box sx={{ mb: 4 }}>
-            {Object.entries(userTotals).map(([participant, amount]) => (
-              <Box
-                key={participant}
-                sx={{
+            {/* Participant Cards */}
+            <Box sx={{ mb: 4 }}>
+              {Object.entries(userTotals).map(([participant, amount], index) => (
+                <Slide direction="up" in timeout={1000 + index * 200} key={participant}>
+                  <ParticipantCard>
+                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        width: 40,
+                        height: 40,
+                        borderRadius: '50%',
+                        background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                        color: 'primary.contrastText',
+                        mr: 3,
+                        flexShrink: 0,
+                        boxShadow: '0 2px 6px rgba(59, 130, 246, 0.25)',
+                      }}>
+                        <PersonIcon sx={{ fontSize: 20 }} />
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="h6" sx={{ 
+                          fontWeight: 600, 
+                          color: 'text.primary',
+                          mb: 0.25,
+                          fontSize: '1rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {participant}
+                        </Typography>
+                        <Typography variant="body2" sx={{ 
+                          color: 'text.secondary',
+                          fontSize: '0.875rem',
+                        }}>
+                          {Math.round((amount / totalAmount) * 100)}% of total
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                      <Typography variant="h6" sx={{ 
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        fontSize: '1.1rem',
+                        lineHeight: 1.2,
+                      }}>
+                        {formatCurrency(amount, targetCurrency)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ 
+                        color: 'text.secondary',
+                        fontSize: '0.8rem',
+                        mt: 0.25,
+                      }}>
+                        {targetCurrency}
+                      </Typography>
+                    </Box>
+                  </ParticipantCard>
+                </Slide>
+              ))}
+            </Box>
+
+            {/* Grand Total */}
+            <Fade in timeout={1400}>
+              <Box sx={{ 
+                p: 3,
+                mt: 3,
+                borderRadius: 2,
+                background: `rgba(59, 130, 246, 0.05)`,
+                border: '1px solid',
+                borderColor: 'primary.light',
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)',
+              }}>
+                <Box sx={{ 
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  py: 2,
-                  borderBottom: '1px solid',
+                }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ 
+                      color: 'text.secondary', 
+                      mb: 0.5,
+                      fontSize: '0.875rem',
+                    }}>
+                      Grand Total
+                    </Typography>
+                    <Typography variant="h4" sx={{ 
+                      fontWeight: 700,
+                      color: 'text.primary',
+                    }}>
+                      {formatCurrency(totalAmount, targetCurrency)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.dark})`,
+                    color: 'success.contrastText',
+                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+                  }}>
+                    <AttachMoneyIcon sx={{ fontSize: 24 }} />
+                  </Box>
+                </Box>
+              </Box>
+            </Fade>
+
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setCurrentParticipantIndex(0);
+                  setCurrentStep('assignments');
+                }}
+                startIcon={<ArrowBackIcon />}
+                fullWidth
+                sx={{ 
+                  py: 1.5, 
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
                   borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                  },
                 }}
               >
-                <Typography variant="h6" sx={{ fontWeight: 500, color: 'text.primary' }}>
-                  {participant}
-                </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                  {formatCurrency(amount, targetCurrency)}
-                </Typography>
-              </Box>
-            ))}
-
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                py: 2,
-                mt: 2,
-                border: '2px solid',
-                borderColor: 'primary.main',
-                borderRadius: 2,
-                px: 2,
-              }}
-            >
-              <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                Total
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {formatCurrency(totalAmount, targetCurrency)}
-              </Typography>
+                Back
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  if (onComplete) {
+                    onComplete({
+                      participants,
+                      userTotals,
+                      currency: targetCurrency,
+                      items
+                    });
+                  }
+                  setCurrentStep('loading');
+                }}
+                fullWidth
+                sx={{ 
+                  py: 1.5,
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  background: theme.palette.primary.main,
+                  '&:hover': {
+                    background: theme.palette.primary.dark,
+                  },
+                }}
+              >
+                Complete
+              </Button>
             </Box>
-          </Box>
-
-          <Typography variant="body2" sx={{ textAlign: 'center', mb: 4, color: 'text.secondary' }}>
-            All amounts are in {targetCurrency}. Split calculated successfully! ✓
-          </Typography>
-
-                  <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setCurrentParticipantIndex(0);
-              setCurrentStep('assignments');
-            }}
-            startIcon={<ArrowBackIcon />}
-            fullWidth
-            sx={{ py: 1.5, fontSize: '0.9rem' }}
-          >
-            Back
-          </Button>
-                      <Button
-              variant="contained"
-              onClick={() => {
-                if (onComplete) {
-                  onComplete({
-                    participants,
-                    userTotals,
-                    currency: targetCurrency,
-                    items
-                  });
-                }
-                setCurrentStep('loading');
-              }}
-              endIcon={<CheckCircleIcon />}
-              fullWidth
-              sx={{ py: 1.5, fontSize: '0.9rem' }}
-            >
-              Complete Split
-            </Button>
-          </Box>
-        </ReceiptCard>
+          </SummaryCard>
+        </Zoom>
         </Box>
       </Box>
     );

@@ -25,7 +25,7 @@ interface ReceiptItem {
   price: number;
   currency: string;
   isSpecialItem?: boolean; // For tax, tip, service charges
-  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount' | 'total';
 }
 
 interface ProcessReceiptResponse {
@@ -34,6 +34,8 @@ interface ProcessReceiptResponse {
   currency: string;
   language: string;
   subtotal?: number; // Pre-tax subtotal
+  taxIncluded?: boolean; // Whether tax is already included in item prices
+  taxInclusionReason?: string; // Explanation of why tax is/isn't included
 }
 
 interface ProcessedItem {
@@ -44,7 +46,154 @@ interface ProcessedItem {
   converted_price?: number;
   converted_total?: number;
   isSpecialItem?: boolean;
-  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount';
+  specialType?: 'tax' | 'tip' | 'service_charge' | 'discount' | 'total';
+}
+
+// Detect if tax is included in item prices or added separately
+function detectTaxIncluded(
+  items: ReceiptItem[], 
+  total: number, 
+  subtotal?: number,
+  currency?: string,
+  language?: string
+): { taxIncluded: boolean; reason: string } {
+  
+  // Validate inputs
+  if (!items || !Array.isArray(items) || typeof total !== 'number') {
+    return { 
+      taxIncluded: false, 
+      reason: 'Invalid input data for tax detection' 
+    };
+  }
+
+  // Find tax items
+  const taxItems = items.filter(item => 
+    item && item.isSpecialItem && item.specialType === 'tax'
+  );
+  
+  const regularItems = items.filter(item => item && !item.isSpecialItem);
+  
+  // Calculate totals with null checks
+  const regularItemsTotal = regularItems.reduce((sum, item) => 
+    sum + ((item.price || 0) * (item.quantity || 0)), 0
+  );
+  
+  const taxTotal = taxItems.reduce((sum, item) => 
+    sum + ((item.price || 0) * (item.quantity || 0)), 0
+  );
+  
+  // Strategy 1: Mathematical check
+  const tolerance = 0.5; // Allow small rounding differences
+  const itemsPlusTaxTotal = regularItemsTotal + taxTotal;
+  const mathDifference = Math.abs(itemsPlusTaxTotal - total);
+  const regularItemsDifference = Math.abs(regularItemsTotal - total);
+  
+  // Handle edge case where we have no items
+  if (regularItems.length === 0) {
+    return { 
+      taxIncluded: false, 
+      reason: 'No regular items found to analyze tax inclusion' 
+    };
+  }
+  
+  console.log(`Tax detection analysis:
+    Regular items total: ${regularItemsTotal}
+    Tax total: ${taxTotal}
+    Items + tax: ${itemsPlusTaxTotal}
+    Receipt total: ${total}
+    Difference (items + tax): ${mathDifference}
+    Difference (items only): ${regularItemsDifference}`);
+  
+  // Strategy 2: VAT keyword detection (indicates included tax)
+  const includedTaxKeywords = [
+    'iva', 'igic', 'tva', 'btw', 'mva', 'vat included', 'tax included',
+    'inclui iva', 'incluye iva', 'tva incluse', 'iva incluido',
+    'steuer enthalten', 'mwst enthalten'
+  ];
+  
+  const separateTaxKeywords = [
+    'sales tax', 'tax added', 'plus tax', 'excluding tax',
+    'tax not included', 'antes de impuestos'
+  ];
+  
+  const allText = items
+    .filter(item => item && item.name)
+    .map(item => item.name.toLowerCase())
+    .join(' ') + ' ' + (language || '').toLowerCase();
+  
+  const hasIncludedKeywords = includedTaxKeywords.some(keyword => 
+    allText.includes(keyword)
+  );
+  
+  const hasSeparateKeywords = separateTaxKeywords.some(keyword => 
+    allText.includes(keyword)
+  );
+  
+  // Strategy 3: Currency/region hints
+  const includedTaxCurrencies = ['EUR', 'GBP']; // European currencies typically include VAT
+  const separateTaxCurrencies = ['USD', 'CAD']; // North American currencies typically separate tax
+  
+  const currencyHint = currency ? (
+    includedTaxCurrencies.includes(currency) ? 'included' :
+    separateTaxCurrencies.includes(currency) ? 'separate' : 'neutral'
+  ) : 'neutral';
+  
+  // Decision logic with priority
+  
+  // Strong evidence for separate tax (US style)
+  if (hasSeparateKeywords) {
+    return { 
+      taxIncluded: false, 
+      reason: 'Receipt contains keywords indicating tax is added separately' 
+    };
+  }
+  
+  // Strong evidence for included tax (European style)
+  if (hasIncludedKeywords) {
+    return { 
+      taxIncluded: true, 
+      reason: 'Receipt contains VAT keywords indicating tax is included in prices' 
+    };
+  }
+  
+  // Mathematical evidence for separate tax
+  if (mathDifference <= tolerance && taxTotal > 0) {
+    console.log(`✅ Tax detected as SEPARATE (American style): items + tax = total`);
+    return { 
+      taxIncluded: false, 
+      reason: `Mathematical check: items (${regularItemsTotal}) + tax (${taxTotal}) = total (${total})` 
+    };
+  }
+  
+  // Mathematical evidence for included tax
+  if (regularItemsDifference <= tolerance && taxTotal > 0) {
+    console.log(`✅ Tax detected as INCLUDED (European style): items ≈ total`);
+    return { 
+      taxIncluded: true, 
+      reason: `Mathematical check: items total (${regularItemsTotal}) ≈ receipt total (${total}), tax already included` 
+    };
+  }
+  
+  // Fallback to currency hints
+  if (currencyHint === 'included') {
+    return { 
+      taxIncluded: true, 
+      reason: `Currency ${currency} suggests European-style included VAT` 
+    };
+  }
+  
+  if (currencyHint === 'separate') {
+    return { 
+      taxIncluded: false, 
+      reason: `Currency ${currency} suggests North American-style separate tax` 
+    };
+  }
+  
+  // Default fallback
+  return { 
+    taxIncluded: false, 
+    reason: 'Unable to determine tax style, defaulting to separate tax for safety' 
+  };
 }
 
 async function processReceiptWithGPT(imageBase64?: string, receiptText?: string): Promise<ProcessReceiptResponse> {
@@ -118,15 +267,41 @@ Important:
 - If quantity is not specified, default to 1
 - Always calculate unit price, not total price for items
 - Be precise with decimal places for prices
-- Identify ALL types of fees and charges that should be shared by all participants:
-  * Tax: VAT, sales tax, HST, GST, city tax, etc.
-  * Service charges: service fee, delivery fee, convenience fee, booking fee, processing fee, handling fee, corkage fee, cover charge, facility fee, etc.
-  * Tips: automatic gratuity, service charge (when it's a tip), suggested tip, mandatory gratuity
-  * Discounts: promotions, coupons, member discounts (negative amounts)
-- Calculate subtotal (before tax and fees) and total (final amount)
-- Special items should have quantity=1 and price=total amount
-- Look for keywords like: tax, VAT, HST, GST, service, delivery, convenience, booking, processing, handling, corkage, cover, facility, tip, gratuity, discount, promotion, coupon
-- Common service charge variations: "Service Charge", "Svc Charge", "Service Fee", "Delivery Fee", "Convenience Fee", "Booking Fee", "Processing Fee", "Handling Fee", "Corkage Fee", "Cover Charge", "Facility Fee", "Administrative Fee", "Maintenance Fee"`;
+- DO NOT extract total/subtotal lines as items (e.g., "Total", "Subtotal", "Total Service", "Grand Total", "Final Total", etc.)
+- Only extract actual purchased items, taxes, tips, and legitimate service charges
+- Summary lines showing final amounts should not be included as items
+
+CRITICAL: Distinguish between legitimate services and service charges:
+- LEGITIMATE SERVICES (mark as regular items, isSpecialItem=false):
+  * Room service, cleaning service, laundry service, concierge service, valet service
+  * Servicio de limpieza, servicio de habitación, servicio de lavandería
+  * Massage, spa service, tour service, shuttle service, car service
+  * Any service that is a product/amenity being sold
+- SERVICE CHARGES/FEES (mark as special items, isSpecialItem=true, specialType="service_charge"):
+  * Service charge, service fee, svc charge, svc fee
+  * Delivery fee, convenience fee, booking fee, processing fee, handling fee
+  * Corkage fee, cover charge, facility fee, administrative fee, maintenance fee
+  * Automatic gratuity (when labeled as service charge)
+
+Tax identification:
+- Tax: VAT, sales tax, HST, GST, city tax, impuesto, taxe, steuer
+- Look for: "tax", "VAT", "HST", "GST", "IVA", "impuesto", "taxe", "steuer"
+
+Service charge identification (be very specific):
+- Only mark as service_charge if it's clearly an additional FEE or CHARGE
+- Look for: "service charge", "service fee", "svc charge", "svc fee", "cargo por servicio", "frais de service"
+- NOT legitimate services like "room service", "cleaning service", etc.
+
+Tips identification:
+- Automatic gratuity, suggested tip, mandatory gratuity, propina, pourboire, trinkgeld
+- Look for: "tip", "gratuity", "propina", "pourboire", "trinkgeld"
+
+Discounts identification:
+- Promotions, coupons, member discounts, descuento, remise, rabatt (negative amounts)
+- Look for: "discount", "promotion", "coupon", "descuento", "remise", "rabatt"
+
+Calculate subtotal (before tax and fees) and total (final amount)
+Special items should have quantity=1 and price=total amount`;
 
   try {
     const messageContent = [];
@@ -153,40 +328,25 @@ Important:
       });
     }
 
-    // Convert messageContent to the new API format
-    const inputContent = [];
-    
-    for (const content of messageContent) {
-      if (content.type === "text") {
-        inputContent.push({
-          type: "input_text",
-          text: content.text
-        });
-      } else if (content.type === "image_url") {
-        inputContent.push({
-          type: "input_image",
-          image_url: content.image_url.url
-        });
-      }
-    }
-
-    const response = await openai.responses.create({
-      model: "gpt-4.1",
-      input: [
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
         {
           role: "user",
-          content: inputContent
+          content: messageContent as any
         }
-      ]
+      ],
+      max_tokens: 4000,
+      temperature: 0.1
     });
 
-    const gptResponse = response.output_text;
+    const gptResponse = response.choices[0]?.message?.content;
     
     if (!gptResponse) {
-      throw new Error('No response from GPT-4o');
+      throw new Error('No response from GPT-4o-mini');
     }
 
-    console.log('GPT-4o response:', gptResponse);
+    console.log('GPT-4o-mini response:', gptResponse);
 
     // Try to parse the JSON response
     try {
@@ -235,15 +395,31 @@ Important:
           throw new Error('Invalid item structure: isSpecialItem must be a boolean');
         }
         if (item.specialType !== undefined && 
-            !['tax', 'tip', 'service_charge', 'discount'].includes(item.specialType)) {
-          throw new Error('Invalid item structure: specialType must be one of tax, tip, service_charge, discount');
+            !['tax', 'tip', 'service_charge', 'discount', 'total'].includes(item.specialType)) {
+          throw new Error('Invalid item structure: specialType must be one of tax, tip, service_charge, discount, total');
         }
       }
 
-      return parsedResponse;
+      // Detect tax inclusion style
+      const taxDetection = detectTaxIncluded(
+        parsedResponse.items || [],
+        parsedResponse.total || 0,
+        parsedResponse.subtotal,
+        parsedResponse.currency || '',
+        parsedResponse.language || ''
+      );
+      
+      console.log(`🏷️ Tax detection result: ${taxDetection.taxIncluded ? 'INCLUDED' : 'SEPARATE'}`);
+      console.log(`📝 Reason: ${taxDetection.reason}`);
+      
+      return {
+        ...parsedResponse,
+        taxIncluded: taxDetection.taxIncluded,
+        taxInclusionReason: taxDetection.reason
+      };
     } catch (parseError) {
       console.error('Failed to parse GPT response as JSON:', parseError);
-      throw new Error(`Invalid JSON response from GPT-4o: ${gptResponse}`);
+      throw new Error(`Invalid JSON response from GPT-4o-mini: ${gptResponse}`);
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
@@ -319,7 +495,7 @@ export default async function handler(
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
-    console.log('Processing receipt with GPT-4o...');
+    console.log('Processing receipt with GPT-4o-mini...');
     if (imageBase64) {
       console.log('Image data length:', imageBase64.length);
     }
@@ -327,20 +503,23 @@ export default async function handler(
       console.log('Receipt text length:', receiptText.length);
     }
 
-    // Process receipt with GPT-4o
+    // Process receipt with GPT-4o-mini
     const result = await processReceiptWithGPT(imageBase64, receiptText);
 
     console.log('Successfully processed receipt:', result);
 
     // Transform the items to match the frontend expected format
-    const transformedItems = result.items.map(item => ({
-      item: item.name,
-      price: item.price,
-      qty: item.quantity,
-      total: item.price * item.quantity,
-      isSpecialItem: item.isSpecialItem || false,
-      specialType: item.specialType
-    }));
+    // Filter out total/subtotal items since they're summary lines, not splittable items
+    const transformedItems = result.items
+      .filter(item => !(item.isSpecialItem && item.specialType === 'total'))
+      .map(item => ({
+        item: item.name,
+        price: item.price,
+        qty: item.quantity,
+        total: item.price * item.quantity,
+        isSpecialItem: item.isSpecialItem || false,
+        specialType: item.specialType
+      }));
 
     return res.status(200).json({
       success: true,
@@ -348,18 +527,20 @@ export default async function handler(
       total: result.total,
       currency: result.currency,
       language: result.language,
-      subtotal: result.subtotal
+      subtotal: result.subtotal,
+      taxIncluded: result.taxIncluded,
+      taxInclusionReason: result.taxInclusionReason
     });
 
   } catch (error) {
     console.error('Error processing receipt:', error);
     
     // If it's a GPT parsing error, return the raw response for debugging
-    if (error instanceof Error && error.message.includes('Invalid JSON response from GPT-4o')) {
+    if (error instanceof Error && error.message.includes('Invalid JSON response from GPT-4o-mini')) {
       return res.status(500).json({ 
         success: false,
         error: 'GPT returned invalid JSON',
-        raw_response: error.message.replace('Invalid JSON response from GPT-4o: ', ''),
+        raw_response: error.message.replace('Invalid JSON response from GPT-4o-mini: ', ''),
         details: error.message
       });
     }
