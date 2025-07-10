@@ -14,7 +14,7 @@ console.log('API key configured:', !!process.env.OPENAI_API_KEY);
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
+      sizeLimit: '15mb', // Increased from default 1mb to handle compressed images
     },
   },
 };
@@ -527,7 +527,9 @@ export default async function handler(
 
     console.log('Processing receipt with GPT-4.1-mini-2025-04-14...');
     if (imageBase64) {
-      console.log('Image data length:', imageBase64.length);
+      const imageSizeMB = (imageBase64.length * 0.75 / 1024 / 1024).toFixed(2); // Approximate size conversion
+      console.log('Image data length:', imageBase64.length, `(~${imageSizeMB}MB)`);
+      console.log('Image format: JPEG (auto-compressed)');
     }
     if (receiptText) {
       console.log('Receipt text length:', receiptText.length);
@@ -539,9 +541,20 @@ export default async function handler(
     console.log('Successfully processed receipt:', result);
 
     // Transform the items to match the frontend expected format
-    // Filter out total/subtotal items since they're summary lines, not splittable items
+    // Filter out total/subtotal items and items with zero cost
     const transformedItems = result.items
-      .filter(item => !(item.isSpecialItem && item.specialType === 'total'))
+      .filter(item => {
+        // Remove total/subtotal summary lines
+        if (item.isSpecialItem && item.specialType === 'total') {
+          return false;
+        }
+        // Remove items with zero or negative cost (except special items like tax)
+        if (!item.isSpecialItem && (item.price <= 0 || (item.price * item.quantity) <= 0)) {
+          console.log(`🗑️ Filtering out zero-cost item: "${item.name}" (price: ${item.price}, qty: ${item.quantity})`);
+          return false;
+        }
+        return true;
+      })
       .map(item => ({
         item: item.name,
         price: item.price,
