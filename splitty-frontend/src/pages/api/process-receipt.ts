@@ -329,7 +329,7 @@ Special items should have quantity=1 and price=total amount`;
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-mini-2025-04-14",
       messages: [
         {
           role: "user",
@@ -343,10 +343,10 @@ Special items should have quantity=1 and price=total amount`;
     const gptResponse = response.choices[0]?.message?.content;
     
     if (!gptResponse) {
-      throw new Error('No response from GPT-4o-mini');
+      throw new Error('No response from GPT-4.1-mini-2025-04-14');
     }
 
-    console.log('GPT-4o-mini response:', gptResponse);
+    console.log('GPT-4.1-mini-2025-04-14 response:', gptResponse);
 
     // Try to parse the JSON response
     try {
@@ -419,7 +419,7 @@ Special items should have quantity=1 and price=total amount`;
       };
     } catch (parseError) {
       console.error('Failed to parse GPT response as JSON:', parseError);
-      throw new Error(`Invalid JSON response from GPT-4o-mini: ${gptResponse}`);
+      throw new Error(`Invalid JSON response from GPT-4.1-mini-2025-04-14: ${gptResponse}`);
     }
   } catch (error) {
     console.error('OpenAI API error:', error);
@@ -495,7 +495,7 @@ export default async function handler(
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 
-    console.log('Processing receipt with GPT-4o-mini...');
+    console.log('Processing receipt with GPT-4.1-mini-2025-04-14...');
     if (imageBase64) {
       console.log('Image data length:', imageBase64.length);
     }
@@ -503,7 +503,7 @@ export default async function handler(
       console.log('Receipt text length:', receiptText.length);
     }
 
-    // Process receipt with GPT-4o-mini
+    // Process receipt with GPT-4.1-mini-2025-04-14
     const result = await processReceiptWithGPT(imageBase64, receiptText);
 
     console.log('Successfully processed receipt:', result);
@@ -536,11 +536,11 @@ export default async function handler(
     console.error('Error processing receipt:', error);
     
     // If it's a GPT parsing error, return the raw response for debugging
-    if (error instanceof Error && error.message.includes('Invalid JSON response from GPT-4o-mini')) {
+    if (error instanceof Error && error.message.includes('Invalid JSON response from GPT-4.1-mini-2025-04-14')) {
       return res.status(500).json({ 
         success: false,
         error: 'GPT returned invalid JSON',
-        raw_response: error.message.replace('Invalid JSON response from GPT-4o-mini: ', ''),
+        raw_response: error.message.replace('Invalid JSON response from GPT-4.1-mini-2025-04-14: ', ''),
         details: error.message
       });
     }
