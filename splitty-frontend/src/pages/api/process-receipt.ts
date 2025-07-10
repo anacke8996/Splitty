@@ -200,10 +200,19 @@ async function processReceiptWithGPT(imageBase64?: string, receiptText?: string)
   const prompt = `Please analyze this receipt ${imageBase64 ? 'image' : 'text'} and extract the following information:
 
 1. Extract each receipt item with:
-   - English name
-   - quantity (default 1 if missing)
+   - English name (translate if needed)
+   - quantity (BE VERY CAREFUL with quantity detection)
    - price per unit in ORIGINAL currency (not total)
    - If the total price is listed (e.g. 3 items for $7.50), infer unit price as 7.50 / 3
+
+QUANTITY DETECTION RULES:
+- For RETAIL receipts (grocery stores, warehouses like Costco): quantity is usually 1 unless explicitly stated
+- Look for patterns like "2 @ $5.00" or "QTY: 3" or "3x item"
+- Do NOT use product codes, item numbers, or SKUs as quantities
+- Do NOT use prices as quantities
+- If uncertain about quantity, default to 1
+- For multi-packs (like "24-pack water"), the quantity is still 1 (you bought 1 pack)
+- Quantities should typically be small numbers (1-10), rarely above 20
 
 2. Extract tax, tips, service charges, and discounts as separate line items:
    - Tax (sales tax, VAT, HST, GST, etc.)
@@ -270,6 +279,13 @@ Important:
 - DO NOT extract total/subtotal lines as items (e.g., "Total", "Subtotal", "Total Service", "Grand Total", "Final Total", etc.)
 - Only extract actual purchased items, taxes, tips, and legitimate service charges
 - Summary lines showing final amounts should not be included as items
+
+CRITICAL QUANTITY EXAMPLES:
+- "24-pack water bottles" → quantity: 1 (you bought 1 pack, not 24 bottles)
+- "SWATER 40oz bottle" → quantity: 1 (40oz is the size, not quantity)
+- "KS TOWEL Set" → quantity: 1 (it's 1 set)
+- "2 @ $5.99 Apples" → quantity: 2, price: 5.99 (2 units at $5.99 each)
+- Item codes like "512599", "490278" are NOT quantities
 
 CRITICAL: Distinguish between legitimate services and service charges:
 - LEGITIMATE SERVICES (mark as regular items, isSpecialItem=false):
@@ -377,7 +393,7 @@ Special items should have quantity=1 and price=total amount`;
         throw new Error('Invalid response structure: language must be a string');
       }
 
-      // Validate each item
+      // Validate and fix each item
       for (const item of parsedResponse.items) {
         if (!item.name || typeof item.name !== 'string') {
           throw new Error('Invalid item structure: name must be a string');
@@ -385,6 +401,20 @@ Special items should have quantity=1 and price=total amount`;
         if (typeof item.quantity !== 'number' || item.quantity < 0) {
           throw new Error('Invalid item structure: quantity must be a positive number');
         }
+        
+        // Quantity validation and auto-correction
+        if (!item.isSpecialItem && item.quantity > 50) {
+          console.warn(`⚠️ Suspicious quantity detected for "${item.name}": ${item.quantity}. Auto-correcting to 1.`);
+          console.warn(`   This might be a product code or SKU misread as quantity.`);
+          item.quantity = 1;
+        }
+        
+        // For special items, quantity should always be 1
+        if (item.isSpecialItem && item.quantity !== 1) {
+          console.warn(`⚠️ Special item "${item.name}" had quantity ${item.quantity}. Auto-correcting to 1.`);
+          item.quantity = 1;
+        }
+        
         if (typeof item.price !== 'number' || item.price < 0) {
           throw new Error('Invalid item structure: price must be a positive number');
         }

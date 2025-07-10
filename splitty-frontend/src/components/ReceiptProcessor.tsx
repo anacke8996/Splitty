@@ -401,17 +401,16 @@ const ParticipantCard = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  py: theme.spacing(3),
-  px: theme.spacing(3),
-  mb: theme.spacing(2),
-  borderRadius: theme.spacing(2),
-  background: theme.palette.background.paper,
-  border: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-  transition: 'all 0.2s ease',
+  py: theme.spacing(4),
+  px: theme.spacing(4),
+  mb: theme.spacing(3),
+  borderRadius: theme.spacing(2.5),
+  background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(59, 130, 246, 0.02)'} 100%)`,
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+  transition: 'all 0.3s ease',
   '&:hover': {
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-    borderColor: theme.palette.primary.light,
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+    transform: 'translateY(-2px)',
   },
 }));
 
@@ -432,6 +431,7 @@ const steps = ['Processing', 'Add Names', 'Assign Items', 'Summary'];
 
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
   const [loading, setLoading] = useState(true);
+  const [currencyLoading, setCurrencyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ReceiptItem[]>([]);
   const [participants, setParticipants] = useState<string[]>([]);
@@ -439,6 +439,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [sourceCurrency, setSourceCurrency] = useState('');
   const [targetCurrency, setTargetCurrency] = useState('USD');
   const [currentStep, setCurrentStep] = useState<'loading' | 'currency' | 'participants' | 'assignments' | 'summary'>('loading');
+  
+  // Debug step changes
+  const setCurrentStepWithLog = (newStep: typeof currentStep) => {
+    console.log(`📋 Step change: ${currentStep} → ${newStep}`);
+    console.trace('Step change stack trace:');
+    setCurrentStep(newStep);
+  };
   const [activeStep, setActiveStep] = useState(0);
   const [inputError, setInputError] = useState(false);
   const [userTotals, setUserTotals] = useState<Record<string, number>>({});
@@ -448,7 +455,16 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Debug component lifecycle
   React.useEffect(() => {
+    console.log('🚀 ReceiptProcessor mounted');
+    return () => {
+      console.log('💥 ReceiptProcessor unmounting');
+    };
+  }, []);
+
+  React.useEffect(() => {
+    console.log('🔄 processReceipt useEffect triggered, imageData length:', imageData?.length);
     processReceipt();
   }, [imageData]);
 
@@ -543,35 +559,40 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   // Initialize special items to be assigned to all participants when participants change
   React.useEffect(() => {
-    if (participants.length > 0) {
-      const updatedItems = items.map(item => {
-        const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
-        if (validatedItem && validatedItem.isSpecialItem) {
-          // For separate tax (American style), auto-assign tax to all participants
-          if (validatedItem.specialType === 'tax' && !taxIncluded) {
-            console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
-            return {
-              ...validatedItem,
-              shared_by: [...participants]
-            };
+    try {
+      console.log('🔄 Validation useEffect triggered, participants:', participants.length, 'taxIncluded:', taxIncluded);
+      if (participants.length > 0) {
+        const updatedItems = items.map(item => {
+          const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
+          if (validatedItem && validatedItem.isSpecialItem) {
+            // For separate tax (American style), auto-assign tax to all participants
+            if (validatedItem.specialType === 'tax' && !taxIncluded) {
+              console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
+              return {
+                ...validatedItem,
+                shared_by: [...participants]
+              };
+            }
+            // For other special items (tips, service charges), also auto-assign
+            else if (validatedItem.specialType !== 'tax') {
+              return {
+                ...validatedItem,
+                shared_by: [...participants]
+              };
+            }
+            // For included tax, don't auto-assign (it's filtered out anyway)
+            else {
+              return validatedItem;
+            }
           }
-          // For other special items (tips, service charges), also auto-assign
-          else if (validatedItem.specialType !== 'tax') {
-            return {
-              ...validatedItem,
-              shared_by: [...participants]
-            };
-          }
-          // For included tax, don't auto-assign (it's filtered out anyway)
-          else {
-            return validatedItem;
-          }
-        }
-        return validatedItem;
-      }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
-      setItems(updatedItems);
+          return validatedItem;
+        }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
+        setItems(updatedItems);
+      }
+    } catch (error) {
+      console.error('❌ Error in validation useEffect:', error);
     }
-      }, [participants, taxIncluded]);
+  }, [participants, taxIncluded]);
 
     const processReceipt = async () => {
     try {
@@ -631,7 +652,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         setItems(convertedItems);
         setSourceCurrency(data.currency);
         setTargetCurrency(data.currency);
-        setCurrentStep('currency');
+        setCurrentStepWithLog('currency');
       } else {
         setError(data.error || 'Failed to process receipt');
       }
@@ -646,12 +667,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setTargetCurrency(newCurrency);
     
     if (newCurrency === sourceCurrency) {
-      setCurrentStep('participants');
+      setCurrentStepWithLog('participants');
       return;
     }
     
     try {
-      setLoading(true);
+      setCurrencyLoading(true);
       const response = await fetch(API_ENDPOINTS.convertCurrency, {
         method: 'POST',
         headers: {
@@ -676,7 +697,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           };
         });
         setItems(updatedItems);
-        setCurrentStep('participants');
+        setCurrentStepWithLog('participants');
       } else {
         setError(data.error || 'Failed to convert currency');
       }
@@ -684,7 +705,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       console.error('Currency conversion error:', err);
       setError('Failed to convert currency');
     } finally {
-      setLoading(false);
+      setCurrencyLoading(false);
     }
   };
 
@@ -883,7 +904,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     });
 
     setUserTotals(totals);
-    setCurrentStep('summary');
+    setCurrentStepWithLog('summary');
   };
 
   const getStepIndex = () => {
@@ -896,6 +917,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       default: return 0;
     }
   };
+
+
 
   // Loading state
   if (loading) {
@@ -1015,7 +1038,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
           <CurrencySelector
             value={targetCurrency}
-            onChange={handleCurrencyChange}
+            onChange={(newCurrency) => setTargetCurrency(newCurrency)}
             sx={{ mb: 3 }}
           />
 
@@ -1023,10 +1046,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             variant="contained"
             onClick={() => handleCurrencyChange(targetCurrency)}
             fullWidth
+            disabled={currencyLoading}
             sx={{ py: 2.5, fontSize: '1.1rem' }}
-            endIcon={<ArrowForwardIosIcon />}
+            endIcon={currencyLoading ? <CircularProgress size={20} color="inherit" /> : <ArrowForwardIosIcon />}
           >
-            Continue with {targetCurrency}
+            {currencyLoading ? 'Converting Currency...' : `Continue with ${targetCurrency}`}
           </AnimatedButton>
         </ReceiptCard>
         </Box>
@@ -1123,7 +1147,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           <Box sx={{ display: 'flex', gap: 2 }}>
             <AnimatedButton
               variant="outlined"
-              onClick={() => setCurrentStep('currency')}
+              onClick={() => setCurrentStepWithLog('currency')}
               startIcon={<ArrowBackIcon />}
               fullWidth
               sx={{ py: 2 }}
@@ -1134,7 +1158,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               variant="contained"
               onClick={() => {
                 setCurrentParticipantIndex(0);
-                setCurrentStep('assignments');
+                setCurrentStepWithLog('assignments');
               }}
               disabled={participants.length < 1}
               endIcon={<ArrowForwardIosIcon />}
@@ -1491,7 +1515,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
            <Box sx={{ display: 'flex', gap: 1.5 }}>
              <AnimatedButton
                variant="outlined"
-               onClick={() => setCurrentStep('participants')}
+               onClick={() => setCurrentStepWithLog('participants')}
                startIcon={<ArrowBackIcon />}
                fullWidth
                sx={{ py: 1.5, fontSize: '0.9rem' }}
@@ -1573,7 +1597,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             </Box>
 
             {/* Participant Cards */}
-            <Box sx={{ mb: 4 }}>
+            <Box sx={{ mb: 5, px: 1 }}>
               {Object.entries(userTotals).map(([participant, amount], index) => (
                 <Slide direction="up" in timeout={1000 + index * 200} key={participant}>
                   <ParticipantCard>
@@ -1582,12 +1606,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        width: 40,
-                        height: 40,
+                        width: 50,
+                        height: 50,
                         borderRadius: '50%',
                         background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                         color: 'primary.contrastText',
-                        mr: 3,
+                        mr: 4,
                         flexShrink: 0,
                         boxShadow: '0 2px 6px rgba(59, 130, 246, 0.25)',
                       }}>
@@ -1689,7 +1713,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 variant="outlined"
                 onClick={() => {
                   setCurrentParticipantIndex(0);
-                  setCurrentStep('assignments');
+                  setCurrentStepWithLog('assignments');
                 }}
                 startIcon={<ArrowBackIcon />}
                 fullWidth
@@ -1718,7 +1742,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       items
                     });
                   }
-                  setCurrentStep('loading');
+                  setCurrentStepWithLog('loading');
                 }}
                 fullWidth
                 sx={{ 
@@ -1740,6 +1764,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       </Box>
     );
   }
+
+
 
   return null;
 };
