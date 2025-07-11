@@ -196,6 +196,54 @@ function detectTaxIncluded(
   };
 }
 
+// Helper to deduplicate and merge items with the same name/currency
+function deduplicateAndMergeItems(items: ReceiptItem[]): ReceiptItem[] {
+  const merged: Record<string, ReceiptItem> = {};
+  for (const item of items) {
+    // Only deduplicate regular items (not special items)
+    if (!item.name || item.isSpecialItem) {
+      const key = `${item.name}|${item.currency}|special|${item.specialType || ''}`;
+      if (!merged[key]) {
+        merged[key] = { ...item };
+      } else {
+        // For special items, just sum the price if duplicate
+        merged[key].price += item.price;
+      }
+      continue;
+    }
+    const key = `${item.name.trim().toLowerCase()}|${item.currency}`;
+    if (!merged[key]) {
+      merged[key] = { ...item };
+    } else {
+      // If quantities and prices match a pattern like (qty=1, price=total) and (qty>1, price=unit), merge
+      const a = merged[key];
+      const b = item;
+      // Check if one is a total and the other is a unit price
+      if (
+        (a.quantity === 1 && b.quantity > 1 && Math.abs(a.price - b.price * b.quantity) < 0.01) ||
+        (b.quantity === 1 && a.quantity > 1 && Math.abs(b.price - a.price * a.quantity) < 0.01)
+      ) {
+        // Keep the one with higher quantity and correct unit price
+        if (a.quantity > b.quantity) {
+          // a is the correct one, skip b
+          continue;
+        } else {
+          // b is the correct one, replace a
+          merged[key] = { ...b };
+        }
+      } else if (a.price === b.price) {
+        // If unit prices match, sum quantities
+        merged[key].quantity += b.quantity;
+      } else {
+        // Otherwise, keep both as separate lines (rare case)
+        const altKey = `${item.name.trim().toLowerCase()}|${item.currency}|${Math.random()}`;
+        merged[altKey] = { ...b };
+      }
+    }
+  }
+  return Object.values(merged);
+}
+
 async function processReceiptWithGPT(imageBase64?: string, receiptText?: string): Promise<ProcessReceiptResponse> {
   const prompt = `Please analyze this receipt ${imageBase64 ? 'image' : 'text'} and extract the following information:
 
@@ -328,10 +376,14 @@ Special items should have quantity=1 and price=total amount`;
     });
     
     if (imageBase64) {
+      const dataUrl = `data:image/jpeg;base64,${imageBase64}`;
+      console.log('Sending to OpenAI - Data URL preview (first 200 chars):', dataUrl.substring(0, 200));
+      console.log('Sending to OpenAI - Data URL preview (last 100 chars):', dataUrl.substring(dataUrl.length - 100));
+      
       messageContent.push({
         type: "image_url",
         image_url: {
-          url: `data:image/jpeg;base64,${imageBase64}`,
+          url: dataUrl,
           detail: "high"
         }
       });
@@ -345,7 +397,7 @@ Special items should have quantity=1 and price=total amount`;
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini-2025-04-14",
+      model: "gpt-4.1-mini",
       messages: [
         {
           role: "user",
@@ -429,6 +481,9 @@ Special items should have quantity=1 and price=total amount`;
           throw new Error('Invalid item structure: specialType must be one of tax, tip, service_charge, discount, total');
         }
       }
+
+      // Deduplicate and merge items before further processing
+      parsedResponse.items = deduplicateAndMergeItems(parsedResponse.items);
 
       // Detect tax inclusion style
       const taxDetection = detectTaxIncluded(
@@ -530,6 +585,8 @@ export default async function handler(
       const imageSizeMB = (imageBase64.length * 0.75 / 1024 / 1024).toFixed(2); // Approximate size conversion
       console.log('Image data length:', imageBase64.length, `(~${imageSizeMB}MB)`);
       console.log('Image format: JPEG (auto-compressed)');
+      console.log('Base64 data preview (first 100 chars):', imageBase64.substring(0, 100));
+      console.log('Base64 data preview (last 100 chars):', imageBase64.substring(imageBase64.length - 100));
     }
     if (receiptText) {
       console.log('Receipt text length:', receiptText.length);
