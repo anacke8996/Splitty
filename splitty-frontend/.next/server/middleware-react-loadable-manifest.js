@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"../components/ReceiptProcessor.tsx -> heic2any\":{\"id\":\"../components/ReceiptProcessor.tsx -> heic2any\",\"files\":[\"static/chunks/node_modules_heic2any_dist_heic2any_js.js\"]}}"

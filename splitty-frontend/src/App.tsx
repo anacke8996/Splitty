@@ -4,6 +4,7 @@ import { styled } from '@mui/material/styles';
 import ReceiptProcessor from './components/ReceiptProcessor';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import heic2any from 'heic2any';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   minHeight: '100vh',
@@ -135,18 +136,217 @@ function App() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = async (file: File): Promise<string> => {
+    try {
+      let processedFile = file;
+      
+      // Handle HEIF/HEIC files by converting to JPEG first
+      console.log('🔍 Checking file type:', file.type, 'name:', file.name);
+      const isHeicFile = file.type === 'image/heif' || 
+                        file.type === 'image/heic' || 
+                        file.name.toLowerCase().endsWith('.heif') || 
+                        file.name.toLowerCase().endsWith('.heic') ||
+                        file.name.toLowerCase().includes('heic') ||
+                        file.name.toLowerCase().includes('heif');
+      
+      console.log('🔍 Is HEIC file?', isHeicFile);
+      
+      if (isHeicFile) {
+        console.log('🔄 Converting HEIF/HEIC image to JPEG...');
+        console.log('🔍 heic2any available:', typeof heic2any);
+        console.log('🔍 File details:', {
+          name: file.name,
+          type: file.type,
+          size: file.size
+        });
+        try {
+          // Try heic2any first with proper configuration
+          const convertedBlob = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.8
+          });
+          let blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          processedFile = new File([blobToUse], file.name.replace(/\.(heif|heic)$/i, '.jpg'), {
+            type: 'image/jpeg'
+          });
+          console.log('✅ HEIF/HEIC conversion successful');
+          console.log('Converted file type:', processedFile.type);
+          console.log('Converted file size:', (processedFile.size / 1024 / 1024).toFixed(2), 'MB');
+          
+          // Validate the converted blob
+          if (blobToUse.type !== 'image/jpeg') {
+            throw new Error(`Expected JPEG but got ${blobToUse.type}`);
+          }
+          
+          // Check if the blob has data
+          if (blobToUse.size === 0) {
+            throw new Error('Converted blob is empty');
+          }
+          
+          // Verify the conversion actually worked by checking the file content
+          const arrayBuffer = await processedFile.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const header = Array.from(uint8Array.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join('');
+          console.log('🔍 Converted file header (hex):', header);
+          
+          // Check if it's actually JPEG (should start with FFD8FF)
+          if (!header.startsWith('ffd8ff')) {
+            console.warn('⚠️ heic2any conversion failed - trying alternative method');
+            throw new Error('HEIC conversion failed - file is not valid JPEG');
+          }
+        } catch (conversionError) {
+          console.error('❌ HEIF/HEIC conversion failed:', conversionError);
+          console.log('🔍 heic2any error details:', {
+            name: conversionError.name,
+            message: conversionError.message,
+            stack: conversionError.stack
+          });
+          console.log('🔄 Trying alternative conversion method...');
+          
+          // Alternative method: Try to load the HEIF file directly into canvas
+          // This works in some browsers that support HEIF natively
+          try {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = URL.createObjectURL(file);
+            });
+            
+            // Draw to canvas and convert to JPEG
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx?.drawImage(img, 0, 0);
+            
+            const jpegBlob = await new Promise<Blob>((resolve, reject) => {
+              canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('Canvas to blob conversion failed'));
+              }, 'image/jpeg', 0.8);
+            });
+            
+            processedFile = new File([jpegBlob], file.name.replace(/\.(heif|heic)$/i, '.jpg'), {
+              type: 'image/jpeg'
+            });
+            
+            console.log('✅ Alternative HEIF conversion successful');
+            console.log('Converted file type:', processedFile.type);
+            console.log('Converted file size:', (processedFile.size / 1024 / 1024).toFixed(2), 'MB');
+          } catch (altError) {
+            console.error('❌ Alternative conversion also failed:', altError);
+            throw new Error('HEIF/HEIC format not supported in this browser. Please convert your image to JPEG or PNG format before uploading.');
+          }
+        }
+      } else {
+        console.log('📸 Processing standard image format:', file.type);
+      }
+      
+      return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+          // Calculate new dimensions (max 1920x1920, maintain aspect ratio)
+          const maxSize = 1920;
+          let { width, height } = img;
+          
+          if (width > height) {
+            if (width > maxSize) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress the image
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Convert to JPEG with 85% quality for good balance of size/quality
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          
+          // Check if still too large (>8MB base64 = ~6MB actual)
+          if (compressedDataUrl.length > 8 * 1024 * 1024) {
+            // Try with lower quality
+            const veryCompressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            console.log('🗜️ Applied high compression due to large size');
+            const base64Data = veryCompressedDataUrl.split(',')[1];
+            console.log('📊 Final base64 data length:', base64Data.length);
+            console.log('📊 Final base64 preview (first 50 chars):', base64Data.substring(0, 50));
+            
+            // Validate that we actually have JPEG data
+            const decodedBytes = atob(base64Data);
+            const header = Array.from(new Uint8Array(decodedBytes.slice(0, 3).split('').map(c => c.charCodeAt(0)))).map(b => b.toString(16).padStart(2, '0')).join('');
+            console.log('🔍 Final JPEG header validation:', header);
+            if (!header.startsWith('ffd8ff')) {
+              throw new Error('Generated data is not valid JPEG format');
+            }
+            
+            resolve(base64Data);
+          } else {
+            console.log('🗜️ Applied standard compression');
+            const base64Data = compressedDataUrl.split(',')[1];
+            console.log('📊 Final base64 data length:', base64Data.length);
+            console.log('📊 Final base64 preview (first 50 chars):', base64Data.substring(0, 50));
+            
+            // Validate that we actually have JPEG data
+            const decodedBytes = atob(base64Data);
+            const header = Array.from(new Uint8Array(decodedBytes.slice(0, 3).split('').map(c => c.charCodeAt(0)))).map(b => b.toString(16).padStart(2, '0')).join('');
+            console.log('🔍 Final JPEG header validation:', header);
+            if (!header.startsWith('ffd8ff')) {
+              throw new Error('Generated data is not valid JPEG format');
+            }
+            
+            resolve(base64Data);
+          }
+        };
+        
+        img.onerror = (error) => {
+          console.error('Image loading error:', error);
+          reject(new Error('Failed to load image'));
+        };
+        
+        img.src = URL.createObjectURL(processedFile);
+      });
+    } catch (error) {
+      console.error('Image processing error:', error);
+      throw error;
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
-        const base64Data = base64String.split(',')[1];
-        setImageData(base64Data);
+      try {
+        console.log('📸 Original file:', {
+          name: file.name,
+          type: file.type,
+          size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+        });
+        
+        // Always compress/convert images to ensure proper format
+        console.log('🔄 Processing image...');
+        console.log('🔍 About to call compressImage...');
+        const processedBase64 = await compressImage(file);
+        console.log('✅ Image processing complete. Size:', (processedBase64.length * 0.75 / 1024 / 1024).toFixed(2), 'MB');
+        console.log('🔍 Setting imageData and showProcessor...');
+        setImageData(processedBase64);
         setShowProcessor(true);
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('❌ Error processing image:', error);
+        alert('Error processing image. Please try a different image.');
+      }
     }
   };
 
@@ -156,6 +356,12 @@ function App() {
     // Reset to show the upload screen again
     setShowProcessor(false);
     setImageData(null);
+  };
+
+  const handleClearImage = () => {
+    console.log('🧹 Clearing image data...');
+    setImageData(null);
+    setShowProcessor(false);
   };
 
   return (
@@ -213,7 +419,7 @@ function App() {
 
           <MainContent>
             <input
-              accept="image/*"
+              accept="image/*,.heif,.heic"
               style={{ display: 'none' }}
               id="receipt-upload"
               type="file"
@@ -229,6 +435,17 @@ function App() {
                 Upload Receipt
               </UploadButton>
             </label>
+            {imageData && (
+              <Button 
+                onClick={handleClearImage}
+                variant="outlined"
+                color="secondary"
+                size="small"
+                sx={{ mt: 2 }}
+              >
+                Clear Image & Upload New
+              </Button>
+            )}
 
             <FeatureCard>
               <Typography 
@@ -267,7 +484,7 @@ function App() {
                 marginTop: theme.spacing(2),
               }}
             >
-              Supported formats: JPG, PNG, JPEG
+              Supports all image formats including HEIF/HEIC • Automatically compressed for faster processing
             </Typography>
           </MainContent>
         </>

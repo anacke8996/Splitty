@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Box, 
   Button, 
@@ -32,7 +32,7 @@ import {
   Collapse
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
-import SwipeableViews from 'react-swipeable-views';
+// Custom swipeable views implementation to replace deprecated react-swipeable-views
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
@@ -455,6 +455,78 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Custom SwipeableViews component to replace deprecated library
+  const SwipeableViews = ({ index, onChangeIndex, children }: {
+    index: number;
+    onChangeIndex: (index: number) => void;
+    children: React.ReactNode;
+  }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [currentX, setCurrentX] = useState(0);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+      setIsDragging(true);
+      setStartX(e.touches[0].clientX);
+      setCurrentX(e.touches[0].clientX);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+      if (!isDragging) return;
+      setCurrentX(e.touches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDragging) return;
+      setIsDragging(false);
+      
+      const diff = startX - currentX;
+      const threshold = 50; // Minimum swipe distance
+      
+      if (Math.abs(diff) > threshold) {
+        if (diff > 0 && index < React.Children.count(children) - 1) {
+          // Swipe left - go to next
+          onChangeIndex(index + 1);
+        } else if (diff < 0 && index > 0) {
+          // Swipe right - go to previous
+          onChangeIndex(index - 1);
+        }
+      }
+    };
+
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          overflow: 'hidden',
+          position: 'relative',
+          width: '100%',
+          height: '100%'
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          style={{
+            display: 'flex',
+            width: '100%',
+            height: '100%',
+            transform: `translateX(-${index * 100}%)`,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
+        >
+          {React.Children.map(children, (child, i) => (
+            <div style={{ minWidth: '100%', flexShrink: 0 }}>
+              {child}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // Debug component lifecycle
   React.useEffect(() => {
     console.log('🚀 ReceiptProcessor mounted');
@@ -597,13 +669,70 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const processReceipt = async () => {
     try {
       setLoading(true);
+      
+      // Check if the image data might be HEIC format and convert if needed
+      let processedImageData = imageData;
+      console.log('🔍 Checking if image needs HEIC conversion...');
+      
+      // If the image data doesn't start with a valid image header, it might be HEIC
+      if (imageData && !imageData.startsWith('data:image/')) {
+        console.log('🔄 Attempting HEIC conversion in ReceiptProcessor...');
+        try {
+          // Dynamically import heic2any only on client side
+          const heic2any = (await import('heic2any')).default;
+          
+          // Convert base64 to blob more efficiently
+          const binaryString = atob(imageData);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/heic' });
+          
+          console.log('🔍 Created blob, size:', blob.size, 'type:', blob.type);
+          
+          // Convert HEIC to JPEG using heic2any
+          const convertedBlob = await heic2any({
+            blob: blob,
+            toType: 'image/jpeg',
+            quality: 0.8
+          });
+          
+          // Handle case where heic2any returns an array (multi-image HEIC)
+          let blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          
+          console.log('🔍 Converted blob, size:', blobToUse.size, 'type:', blobToUse.type);
+          
+          // Convert back to base64 more efficiently
+          const arrayBuffer = await blobToUse.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < uint8Array.length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+          const base64String = btoa(binary);
+          processedImageData = base64String;
+          
+          console.log('✅ HEIC conversion successful in ReceiptProcessor');
+          console.log('📊 Converted data length:', base64String.length);
+        } catch (conversionError) {
+          console.error('❌ HEIC conversion failed in ReceiptProcessor:', conversionError);
+          console.log('🔍 Error details:', {
+            name: conversionError.name,
+            message: conversionError.message,
+            stack: conversionError.stack
+          });
+          // Continue with original data if conversion fails
+        }
+      }
+      
       const response = await fetch(API_ENDPOINTS.processReceipt, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageBase64: imageData,
+          imageBase64: processedImageData,
         }),
       });
 
