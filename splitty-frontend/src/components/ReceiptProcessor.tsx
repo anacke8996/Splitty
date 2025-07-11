@@ -502,7 +502,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           overflow: 'hidden',
           position: 'relative',
           width: '100%',
-          height: '100%'
+          height: '100%',
+          flex: 1,
+          minHeight: 0
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1346,11 +1348,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         </Box>
 
         <SwipeableViews
-          axis={theme.direction === 'rtl' ? 'x-reverse' : 'x'}
           index={currentParticipantIndex}
           onChangeIndex={handleSwipeChange}
-          enableMouseEvents
-          style={{ flex: 1, minHeight: 0 }}
         >
           {participants.map((participant, index) => (
             <Box key={participant} sx={{ height: '100%', display: 'flex' }}>
