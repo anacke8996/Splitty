@@ -46,6 +46,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import PersonIcon from '@mui/icons-material/Person';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CurrencySelector from './CurrencySelector';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
 // Keyframe animations
 const gradientAnimation = keyframes`
@@ -586,6 +587,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       }
     };
 
+    const containerWidth = containerRef.current?.offsetWidth || 1;
+    const dragDelta = isDragging ? currentX - startX : 0;
+    const dragPercent = (dragDelta / containerWidth) * 100;
+
+    const translatePercent = -index * 100 + dragPercent;
+
     return (
       <div
         ref={containerRef}
@@ -606,12 +613,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             display: 'flex',
             width: '100%',
             height: '100%',
-            transform: `translateX(-${index * 100}%)`,
-            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+            transform: `translateX(${translatePercent}%)`,
+            transition: isDragging ? 'none' : 'transform 0.5s cubic-bezier(0.22,0.61,0.36,1)'
           }}
         >
           {React.Children.map(children, (child, i) => (
-            <div style={{ minWidth: '100%', flexShrink: 0 }}>
+            <div
+              style={{
+                width: '84%',
+                margin: '0 8%',
+                flexShrink: 0,
+                transition: 'transform 0.3s',
+                transform: i === index ? 'scale(1)' : 'scale(0.94)'
+              }}
+            >
               {child}
             </div>
           ))}
@@ -1013,28 +1028,38 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const updatedItems = [...items];
     const item = updatedItems[itemIndex];
     
+    // Ensure shared_by exists
     if (!item.shared_by) {
       item.shared_by = [];
     }
 
-    const participantIndex = item.shared_by.indexOf(participant);
-    if (participantIndex === -1) {
+    // Current counts
+    const participantQty = item.shared_by.filter(p => p === participant).length;
+    const totalAssigned = item.shared_by.length;
+
+    if (participantQty === 0 && totalAssigned < item.qty) {
+      // First claim – add one unit
+      item.shared_by.push(participant);
+    } else if (participantQty > 0 && totalAssigned < item.qty) {
+      // Increment claim if units remain
       item.shared_by.push(participant);
     } else {
-      item.shared_by.splice(participantIndex, 1);
+      // Either fully assigned or participant reached max – reset participant claim
+      item.shared_by = item.shared_by.filter(p => p !== participant);
     }
 
     setItems(updatedItems);
   };
 
   const getCheckboxState = (item: ReceiptItem, participant: string) => {
-    return item.shared_by?.includes(participant) || false;
+    return (item.shared_by?.filter(p => p === participant).length || 0) > 0;
   };
 
   const getUnassignedItems = () => {
-    return items.filter(item => 
-      (!item.shared_by || item.shared_by.length === 0)
-    );
+    return items.filter(item => {
+      const assignedQty = item.shared_by?.length || 0;
+      return assignedQty < item.qty;
+    });
   };
 
   const hasUnassignedItems = () => {
@@ -1070,11 +1095,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     let total = 0;
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      const itemTotal = price * item.qty;
-      
-      if (item.shared_by?.includes(participant)) {
-        total += itemTotal / (item.shared_by.length || 1);
-      }
+      const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
+      total += price * participantQty;
     });
     return total;
   };
@@ -1127,12 +1149,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      const total = price * item.qty;
-      
       if (item.shared_by && item.shared_by.length > 0) {
-        const perPersonAmount = total / item.shared_by.length;
         item.shared_by.forEach(participant => {
-          totals[participant] += perPersonAmount;
+          totals[participant] += price; // each entry represents one unit
         });
       }
     });
@@ -1765,214 +1784,227 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           index={currentParticipantIndex}
           onChangeIndex={handleSwipeChange}
         >
-          {/* Only render the current participant's assignment view */}
-          <Box key={currentParticipant} sx={{ height: '100%', display: 'flex' }}>
-            <IndividualReceiptCard>
-              <ReceiptHeader>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                    {currentParticipant}'s Receipt
-                  </Typography>
-                  <AnimatedGradientText variant="h4" sx={{ 
-                    fontWeight: 600
-                  }}>
-                    {formatCurrency(getParticipantTotal(currentParticipant), targetCurrency)}
-                  </AnimatedGradientText>
-                </Box>
-                
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
-                  <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                    {getFoodItemsSelectedCount(currentParticipant)}/{getTotalFoodItems()} items selected
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Button
-                      variant="text"
-                      size="medium"
-                      onClick={() => selectAllFoodItems(currentParticipant)}
-                      disabled={getFoodItemsSelectedCount(currentParticipant) === getTotalFoodItems()}
-                      sx={{ 
-                        fontSize: '0.85rem',
-                        py: 0.75,
-                        px: 1.5,
-                        minWidth: 'auto',
-                        color: 'primary.main'
-                      }}
-                    >
-                      Select All
-                    </Button>
-                    <Button
-                      variant="text"
-                      size="medium"
-                      onClick={() => deselectAllFoodItems(currentParticipant)}
-                      disabled={getFoodItemsSelectedCount(currentParticipant) === 0}
-                      sx={{ 
-                        fontSize: '0.85rem',
-                        py: 0.75,
-                        px: 1.5,
-                        minWidth: 'auto',
-                        color: 'text.secondary'
-                      }}
-                    >
-                      Clear
-                    </Button>
-                  </Box>
-                </Box>
-              </ReceiptHeader>
-
-              <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, minHeight: 0 }}>
-                {items.map((item, itemIndex) => {
-                  const isAssignedToParticipant = item.shared_by?.includes(currentParticipant) || false;
-                  const isSpecialItem = item.isSpecialItem;
-                  const totalAssigned = item.shared_by?.length || 0;
-                  // Determine if this is a tax item vs service charge
-                  const isTaxItem = isSpecialItem && (
-                    item.item.toLowerCase().includes('tax') || 
-                    item.specialType === 'tax'
-                  );
-                  const isServiceItem = isSpecialItem && !isTaxItem;
-                  return (
-                    <ReceiptItemRow key={itemIndex} sx={{ 
-                      py: 1.5,
-                      px: isSpecialItem ? 1.5 : 0,
-                      opacity: isSpecialItem && !isAssignedToParticipant ? 0.6 : 1,
-                      backgroundColor: isSpecialItem 
-                        ? isTaxItem 
-                          ? 'rgba(25, 118, 210, 0.08)' 
-                          : 'rgba(255, 193, 7, 0.08)' 
-                        : 'transparent',
-                      borderRadius: isSpecialItem ? 2 : 0,
-                      border: isSpecialItem 
-                        ? isTaxItem 
-                          ? '1px solid rgba(25, 118, 210, 0.2)' 
-                          : '1px solid rgba(255, 193, 7, 0.2)' 
-                        : 'none',
-                      my: isSpecialItem ? 0.5 : 0,
+          {participants.map((participant) => (
+            <Box key={participant} sx={{ height: '100%', display: 'flex' }}>
+              <IndividualReceiptCard>
+                <ReceiptHeader>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                      {participant}'s Receipt
+                    </Typography>
+                    <AnimatedGradientText variant="h4" sx={{ 
+                      fontWeight: 600
                     }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body1" sx={{ 
-                            fontWeight: 600, 
-                            color: 'text.primary',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {item.item}
+                      {formatCurrency(getParticipantTotal(participant), targetCurrency)}
+                    </AnimatedGradientText>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                      {getFoodItemsSelectedCount(participant)}/{getTotalFoodItems()} items selected
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                      <Button
+                        variant="text"
+                        size="medium"
+                        onClick={() => selectAllFoodItems(participant)}
+                        disabled={getFoodItemsSelectedCount(participant) === getTotalFoodItems()}
+                        sx={{ 
+                          fontSize: '0.85rem',
+                          py: 0.75,
+                          px: 1.5,
+                          minWidth: 'auto',
+                          color: 'primary.main'
+                        }}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="text"
+                        size="medium"
+                        onClick={() => deselectAllFoodItems(participant)}
+                        disabled={getFoodItemsSelectedCount(participant) === 0}
+                        sx={{ 
+                          fontSize: '0.85rem',
+                          py: 0.75,
+                          px: 1.5,
+                          minWidth: 'auto',
+                          color: 'text.secondary'
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </Box>
+                  </Box>
+                </ReceiptHeader>
+
+                <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, minHeight: 0 }}>
+                  {items.map((item, itemIndex) => {
+                    const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
+                    const isAssignedToParticipant = participantQty > 0;
+                    const isSpecialItem = item.isSpecialItem;
+                    const totalAssigned = item.shared_by?.length || 0;
+                    // Determine if this is a tax item vs service charge
+                    const isTaxItem = isSpecialItem && (
+                      item.item.toLowerCase().includes('tax') || 
+                      item.specialType === 'tax'
+                    );
+                    const isServiceItem = isSpecialItem && !isTaxItem;
+                    return (
+                      <ReceiptItemRow key={itemIndex} sx={{ 
+                        py: 1.5,
+                        px: isSpecialItem ? 1.5 : 0,
+                        opacity: isSpecialItem && !isAssignedToParticipant ? 0.6 : 1,
+                        backgroundColor: isSpecialItem 
+                          ? isTaxItem 
+                            ? 'rgba(25, 118, 210, 0.08)' 
+                            : 'rgba(255, 193, 7, 0.08)' 
+                          : 'transparent',
+                        borderRadius: isSpecialItem ? 2 : 0,
+                        border: isSpecialItem 
+                          ? isTaxItem 
+                            ? '1px solid rgba(25, 118, 210, 0.2)' 
+                            : '1px solid rgba(255, 193, 7, 0.2)' 
+                          : 'none',
+                        my: isSpecialItem ? 0.5 : 0,
+                      }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ 
+                              fontWeight: 600, 
+                              color: 'text.primary',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {item.item}
+                            </Typography>
+                            {isSpecialItem && (
+                              <Box sx={{ 
+                                backgroundColor: isTaxItem ? 'primary.main' : 'warning.main', 
+                                color: isTaxItem ? 'primary.contrastText' : 'warning.contrastText',
+                                borderRadius: '4px',
+                                px: 0.5,
+                                py: 0.25,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                  opacity: 0.8,
+                                  transform: 'scale(0.95)',
+                                }
+                              }}
+                              onClick={() => {
+                                // Toggle special item status
+                                const updatedItems = items.map((it, idx) => {
+                                  if (idx === itemIndex) {
+                                    return {
+                                      ...it,
+                                      isSpecialItem: false,
+                                      specialType: undefined,
+                                      shared_by: [] // Clear assignments when changing to regular item
+                                    };
+                                  }
+                                  return it;
+                                });
+                                setItems(updatedItems);
+                              }}
+                              title="Click to change to regular item"
+                              >
+                                {isTaxItem ? 'TAX' : 'SERVICE'}
+                              </Box>
+                            )}
+                            {!isSpecialItem && (item.item.toLowerCase().includes('service') || item.item.toLowerCase().includes('servicio')) && (
+                              <Box sx={{ 
+                                backgroundColor: 'action.hover',
+                                color: 'text.secondary',
+                                borderRadius: '4px',
+                                px: 0.5,
+                                py: 0.25,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                border: '1px dashed',
+                                borderColor: 'divider',
+                                '&:hover': {
+                                  backgroundColor: 'warning.light',
+                                  color: 'warning.contrastText',
+                                  borderColor: 'warning.main',
+                                }
+                              }}
+                              onClick={() => {
+                                // Convert to service charge
+                                const updatedItems = items.map((it, idx) => {
+                                  if (idx === itemIndex) {
+                                    return {
+                                      ...it,
+                                      isSpecialItem: true,
+                                      specialType: 'service_charge' as const,
+                                      shared_by: [...participants] // Auto-assign to all participants
+                                    };
+                                  }
+                                  return it;
+                                });
+                                setItems(updatedItems);
+                              }}
+                              title="Click to mark as service charge"
+                              >
+                                SERVICE?
+                              </Box>
+                            )}
+                          </Box>
+                          <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '0.9rem', mt: 0.5 }}>
+                            {isSpecialItem 
+                              ? `Split among ${totalAssigned} people`
+                              : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}`
+                            }
                           </Typography>
-                          {isSpecialItem && (
-                            <Box sx={{ 
-                              backgroundColor: isTaxItem ? 'primary.main' : 'warning.main', 
-                              color: isTaxItem ? 'primary.contrastText' : 'warning.contrastText',
-                              borderRadius: '4px',
-                              px: 0.5,
-                              py: 0.25,
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              textTransform: 'uppercase',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              '&:hover': {
-                                opacity: 0.8,
-                                transform: 'scale(0.95)',
-                              }
-                            }}
-                            onClick={() => {
-                              // Toggle special item status
-                              const updatedItems = items.map((it, idx) => {
-                                if (idx === itemIndex) {
-                                  return {
-                                    ...it,
-                                    isSpecialItem: false,
-                                    specialType: undefined,
-                                    shared_by: [] // Clear assignments when changing to regular item
-                                  };
-                                }
-                                return it;
-                              });
-                              setItems(updatedItems);
-                            }}
-                            title="Click to change to regular item"
-                            >
-                              {isTaxItem ? 'TAX' : 'SERVICE'}
-                            </Box>
-                          )}
-                          {!isSpecialItem && (item.item.toLowerCase().includes('service') || item.item.toLowerCase().includes('servicio')) && (
-                            <Box sx={{ 
-                              backgroundColor: 'action.hover',
-                              color: 'text.secondary',
-                              borderRadius: '4px',
-                              px: 0.5,
-                              py: 0.25,
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              textTransform: 'uppercase',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              border: '1px dashed',
-                              borderColor: 'divider',
-                              '&:hover': {
-                                backgroundColor: 'warning.light',
-                                color: 'warning.contrastText',
-                                borderColor: 'warning.main',
-                              }
-                            }}
-                            onClick={() => {
-                              // Convert to service charge
-                              const updatedItems = items.map((it, idx) => {
-                                if (idx === itemIndex) {
-                                  return {
-                                    ...it,
-                                    isSpecialItem: true,
-                                    specialType: 'service_charge' as const,
-                                    shared_by: [...participants] // Auto-assign to all participants
-                                  };
-                                }
-                                return it;
-                              });
-                              setItems(updatedItems);
-                            }}
-                            title="Click to mark as service charge"
-                            >
-                              SERVICE?
-                            </Box>
-                          )}
                         </Box>
-                        <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '0.9rem', mt: 0.5 }}>
-                          {isSpecialItem 
-                            ? `Split among ${totalAssigned} people`
-                            : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}`
-                          }
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Typography variant="body1" sx={{ 
-                          color: 'text.primary', 
-                          fontWeight: 600,
-                          minWidth: 70,
-                          textAlign: 'right',
-                          fontSize: '1rem'
-                        }}>
-                          {isSpecialItem
-                            ? formatCurrency(totalAssigned > 0 ? (item.converted_price || item.price) / totalAssigned : 0, targetCurrency)
-                            : formatCurrency((item.converted_price || item.price) * item.qty, targetCurrency)
-                          }
-                        </Typography>
-                        <PulsingCheckbox
-                          checked={getCheckboxState(item, currentParticipant)}
-                          onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
-                          size="medium"
-                          sx={{ 
-                            '& .MuiSvgIcon-root': { fontSize: 28 }
-                          }}
-                        />
-                      </Box>
-                    </ReceiptItemRow>
-                  );
-                })}
-              </Box>
-            </IndividualReceiptCard>
-          </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Typography variant="body1" sx={{ 
+                            color: 'text.primary', 
+                            fontWeight: 600,
+                            minWidth: 70,
+                            textAlign: 'right',
+                            fontSize: '1rem'
+                          }}>
+                            {isSpecialItem
+                              ? formatCurrency(totalAssigned > 0 ? (item.converted_price || item.price) / totalAssigned : 0, targetCurrency)
+                              : formatCurrency((item.converted_price || item.price) * item.qty, targetCurrency)
+                            }
+                          </Typography>
+                          <PulsingCheckbox
+                            checked={getCheckboxState(item, currentParticipant)}
+                            onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
+                            size="medium"
+                            sx={{ 
+                              '& .MuiSvgIcon-root': { fontSize: 28 }
+                            }}
+                          />
+                        </Box>
+                      </ReceiptItemRow>
+                    );
+                  })}
+                </Box>
+              </IndividualReceiptCard>
+            </Box>
+          ))}
         </SwipeableViews>
+        {/* Participant carousel dots */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mt: 1, mb: 2 }}>
+          {participants.map((_, idx) => (
+            <StepDot
+              key={idx}
+              active={currentParticipantIndex === idx}
+              style={{ cursor: 'pointer' }}
+              onClick={() => setCurrentParticipantIndex(idx)}
+            />
+          ))}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
           <AnimatedButton
             variant="outlined"
@@ -1994,6 +2026,40 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             Calculate Split
           </AnimatedButton>
         </Box>
+        {participants.length > 1 && (
+          <>
+            <IconButton
+              onClick={handleParticipantBack}
+              disabled={currentParticipantIndex === 0}
+              sx={{
+                position: 'absolute',
+                top: '50%',
+                left: -12,
+                transform: 'translateY(-50%)',
+                backgroundColor: 'background.paper',
+                boxShadow: 3,
+                '&:hover': { backgroundColor: 'background.default' }
+              }}
+            >
+              <ArrowBackIosIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              onClick={handleParticipantNext}
+              disabled={currentParticipantIndex === participants.length - 1}
+              sx={{
+                position: 'absolute',
+                top: '50%',
+                right: -12,
+                transform: 'translateY(-50%)',
+                backgroundColor: 'background.paper',
+                boxShadow: 3,
+                '&:hover': { backgroundColor: 'background.default' }
+              }}
+            >
+              <ArrowForwardIosIcon fontSize="small" />
+            </IconButton>
+          </>
+        )}
       </Box>
     );
   }

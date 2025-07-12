@@ -467,8 +467,8 @@ Special items should have quantity=1 and price=total amount`;
           item.quantity = 1;
         }
         
-        if (typeof item.price !== 'number' || item.price < 0) {
-          throw new Error('Invalid item structure: price must be a positive number');
+        if (typeof item.price !== 'number' || (item.price < 0 && item.specialType !== 'discount')) {
+          throw new Error('Invalid item structure: price must be a positive number unless it is a discount');
         }
         if (typeof item.currency !== 'string') {
           throw new Error('Invalid item structure: currency must be a string');
