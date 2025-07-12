@@ -1028,35 +1028,47 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const updatedItems = [...items];
     const item = updatedItems[itemIndex];
     
-    // Ensure shared_by exists
     if (!item.shared_by) {
       item.shared_by = [];
     }
 
-    // Current counts
-    const participantQty = item.shared_by.filter(p => p === participant).length;
-    const totalAssigned = item.shared_by.length;
-
-    if (participantQty === 0 && totalAssigned < item.qty) {
-      // First claim – add one unit
-      item.shared_by.push(participant);
-    } else if (participantQty > 0 && totalAssigned < item.qty) {
-      // Increment claim if units remain
-      item.shared_by.push(participant);
+    if (item.qty === 1) {
+      // Simple toggle membership for single-unit items (can be shared)
+      const idx = item.shared_by.indexOf(participant);
+      if (idx === -1) {
+        item.shared_by.push(participant);
+      } else {
+        item.shared_by.splice(idx, 1);
+      }
     } else {
-      // Either fully assigned or participant reached max – reset participant claim
-      item.shared_by = item.shared_by.filter(p => p !== participant);
+      // Multi-unit items use duplicate entries per unit
+      const participantQty = item.shared_by.filter(p => p === participant).length;
+      const totalAssigned = item.shared_by.length;
+
+      if (participantQty === 0 && totalAssigned < item.qty) {
+        item.shared_by.push(participant);
+      } else if (participantQty > 0 && totalAssigned < item.qty) {
+        item.shared_by.push(participant);
+      } else {
+        item.shared_by = item.shared_by.filter(p => p !== participant);
+      }
     }
 
     setItems(updatedItems);
   };
 
   const getCheckboxState = (item: ReceiptItem, participant: string) => {
+    if (item.qty === 1) {
+      return item.shared_by?.includes(participant) || false;
+    }
     return (item.shared_by?.filter(p => p === participant).length || 0) > 0;
   };
 
   const getUnassignedItems = () => {
     return items.filter(item => {
+      if (item.qty === 1) {
+        return !item.shared_by || item.shared_by.length === 0;
+      }
       const assignedQty = item.shared_by?.length || 0;
       return assignedQty < item.qty;
     });
@@ -1067,9 +1079,21 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   };
 
   const getAssignmentProgress = () => {
-    const allItems = items;
-    const assignedItems = allItems.filter(item => item.shared_by && item.shared_by.length > 0);
-    return allItems.length === 0 ? 100 : Math.round((assignedItems.length / allItems.length) * 100);
+    let totalUnits = 0;
+    let assignedUnits = 0;
+    items.forEach(item => {
+      const qty = item.qty || 1;
+      totalUnits += qty;
+      if (item.qty === 1) {
+        if (item.shared_by && item.shared_by.length > 0) {
+          assignedUnits += 1;
+        }
+      } else {
+        const claimed = Math.min(item.shared_by?.length || 0, item.qty);
+        assignedUnits += claimed;
+      }
+    });
+    return totalUnits === 0 ? 100 : Math.round((assignedUnits / totalUnits) * 100);
   };
 
   const handleParticipantNext = () => {
@@ -1095,8 +1119,14 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     let total = 0;
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
-      total += price * participantQty;
+      if (item.qty === 1) {
+        if (item.shared_by && item.shared_by.includes(participant)) {
+          total += price / (item.shared_by.length || 1);
+        }
+      } else {
+        const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
+        total += price * participantQty;
+      }
     });
     return total;
   };
@@ -1149,9 +1179,16 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      if (item.shared_by && item.shared_by.length > 0) {
-        item.shared_by.forEach(participant => {
-          totals[participant] += price; // each entry represents one unit
+      if (item.qty === 1) {
+        if (item.shared_by && item.shared_by.length > 0) {
+          const perPerson = price / item.shared_by.length;
+          item.shared_by.forEach(p => {
+            totals[p] += perPerson;
+          });
+        }
+      } else {
+        item.shared_by?.forEach(p => {
+          totals[p] += price; // each duplicate counts one unit
         });
       }
     });
@@ -1850,6 +1887,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       item.specialType === 'tax'
                     );
                     const isServiceItem = isSpecialItem && !isTaxItem;
+                    const assignmentSummary = item.qty > 1 && item.shared_by && item.shared_by.length > 0
+                      ? participants.map(p => {
+                          const cnt = item.shared_by!.filter(x => x === p).length;
+                          return cnt > 0 ? `${p}: ${cnt}` : null;
+                        }).filter(Boolean).join(', ')
+                      : '';
                     return (
                       <ReceiptItemRow key={itemIndex} sx={{ 
                         py: 1.5,
@@ -1960,7 +2003,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                           <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '0.9rem', mt: 0.5 }}>
                             {isSpecialItem 
                               ? `Split among ${totalAssigned} people`
-                              : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}`
+                              : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}${assignmentSummary ? ` | ${assignmentSummary}` : ''}`
                             }
                           </Typography>
                         </Box>
