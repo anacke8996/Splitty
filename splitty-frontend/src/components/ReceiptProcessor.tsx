@@ -47,6 +47,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CurrencySelector from './CurrencySelector';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 
 // Keyframe animations
 const gradientAnimation = keyframes`
@@ -1209,7 +1211,26 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     }
   };
 
+  const addUnit = (itemIndex: number, participant: string) => {
+    const updatedItems = [...items];
+    const item = updatedItems[itemIndex];
+    if (!item.shared_by) item.shared_by = [];
+    const totalAssigned = item.shared_by.length;
+    if (totalAssigned >= item.qty) return; // no units left
+    item.shared_by.push(participant);
+    setItems(updatedItems);
+  };
 
+  const removeUnit = (itemIndex: number, participant: string) => {
+    const updatedItems = [...items];
+    const item = updatedItems[itemIndex];
+    if (!item.shared_by) return;
+    const idx = item.shared_by.indexOf(participant);
+    if (idx !== -1) {
+      item.shared_by.splice(idx, 1);
+      setItems(updatedItems);
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -2020,14 +2041,34 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               : formatCurrency((item.converted_price || item.price) * item.qty, targetCurrency)
                             }
                           </Typography>
-                          <PulsingCheckbox
-                            checked={getCheckboxState(item, currentParticipant)}
-                            onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
-                            size="medium"
-                            sx={{ 
-                              '& .MuiSvgIcon-root': { fontSize: 28 }
-                            }}
-                          />
+                          {item.qty === 1 ? (
+                            <PulsingCheckbox
+                              checked={getCheckboxState(item, currentParticipant)}
+                              onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
+                              size="medium"
+                              sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }}
+                            />
+                          ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => removeUnit(itemIndex, currentParticipant)}
+                                disabled={participantQty === 0}
+                              >
+                                <RemoveCircleOutlineIcon fontSize="small" />
+                              </IconButton>
+                              <Typography variant="body1" sx={{ minWidth: 16, textAlign: 'center' }}>
+                                {participantQty}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                onClick={() => addUnit(itemIndex, currentParticipant)}
+                                disabled={item.shared_by!.length >= item.qty}
+                              >
+                                <AddCircleOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          )}
                         </Box>
                       </ReceiptItemRow>
                     );
