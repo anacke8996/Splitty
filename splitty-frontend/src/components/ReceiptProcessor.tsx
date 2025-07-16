@@ -1140,8 +1140,26 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         if (!item.shared_by) {
           item.shared_by = [];
         }
-        if (!item.shared_by.includes(participant)) {
-          item.shared_by.push(participant);
+        
+        if (item.qty === 1) {
+          // For single quantity items, just add participant once if not already included
+          if (!item.shared_by.includes(participant)) {
+            item.shared_by.push(participant);
+          }
+        } else {
+          // For multiple quantity items, assign all remaining units to this participant
+          const currentParticipantQty = item.shared_by.filter(p => p === participant).length;
+          const totalAssigned = item.shared_by.length;
+          const remainingUnits = item.qty - totalAssigned;
+          const unitsToAssign = Math.max(0, remainingUnits + currentParticipantQty);
+          
+          // Remove existing assignments for this participant
+          item.shared_by = item.shared_by.filter(p => p !== participant);
+          
+          // Add participant for all available units
+          for (let i = 0; i < unitsToAssign; i++) {
+            item.shared_by.push(participant);
+          }
         }
       }
       return item;
