@@ -100,6 +100,7 @@ const pulseGlow = keyframes`
 
 interface ReceiptItem {
   item: string;
+  originalItem?: string; // Store original language item name
   price: number;
   qty: number;
   total: number;
@@ -108,6 +109,7 @@ interface ReceiptItem {
   shared_by?: string[];
   isSpecialItem?: boolean;
   specialType?: 'tax' | 'tip' | 'service_charge' | 'discount' | 'total';
+  shareEqually?: boolean; // When true, item cost is split equally among shared_by participants
 }
 
 interface ReceiptProcessorProps {
@@ -455,6 +457,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [taxIncluded, setTaxIncluded] = useState<boolean>(false);
   const [taxInclusionReason, setTaxInclusionReason] = useState<string>('');
   const [selectedParticipant, setSelectedParticipant] = useState<string>('');
+  const [detectedLanguage, setDetectedLanguage] = useState<string>('');
+  const [showOriginalLanguage, setShowOriginalLanguage] = useState<boolean>(false);
+  
+
   
   // New state for review step
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -463,6 +469,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+
 
   // Validation and editing functions for review step
   const validateItems = (items: ReceiptItem[], receiptTotal: number) => {
@@ -529,6 +537,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const addNewItem = () => {
     const newItem: ReceiptItem = {
       item: 'New Item',
+      originalItem: undefined,
       price: 0,
       qty: 1,
       total: 0,
@@ -827,12 +836,17 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           console.log('✅ HEIC conversion successful in ReceiptProcessor');
           console.log('📊 Converted data length:', base64String.length);
         } catch (conversionError) {
-          console.error('❌ HEIC conversion failed in ReceiptProcessor:', conversionError);
-          console.log('🔍 Error details:', {
-            name: conversionError.name,
-            message: conversionError.message,
-            stack: conversionError.stack
-          });
+          // Check if it's just a "already browser readable" message (not a real error)
+          if (conversionError.message && conversionError.message.includes('already browser readable')) {
+            console.log('✅ Image is already in browser-readable format, skipping HEIC conversion');
+          } else {
+            console.error('❌ HEIC conversion failed in ReceiptProcessor:', conversionError);
+            console.log('🔍 Error details:', {
+              name: conversionError.name,
+              message: conversionError.message,
+              stack: conversionError.stack
+            });
+          }
           // Continue with original data if conversion fails
         }
       }
@@ -860,6 +874,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         const convertedItems = data.items.map((item: any) => {
           const baseItem = {
             item: item.item,
+            originalItem: item.originalItem,
             price: item.price,
             qty: item.qty,
             total: item.total,
@@ -893,6 +908,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         setSourceCurrency(data.currency);
         setTargetCurrency(data.currency);
         setOriginalTotal(data.total || 0);
+        setDetectedLanguage(data.language || '');
+        
+        // Original item names are now included in the initial API response
         
         // Validate items and show review step only if there are issues
         const warnings = validateItems(convertedItems, data.total || 0);
@@ -1035,8 +1053,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       item.shared_by = [];
     }
 
-    if (item.qty === 1) {
-      // Simple toggle membership for single-unit items (can be shared)
+    if (item.qty === 1 || item.shareEqually) {
+      // Simple toggle membership for single-unit items or share equally items
       const idx = item.shared_by.indexOf(participant);
       if (idx === -1) {
         item.shared_by.push(participant);
@@ -1061,7 +1079,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   };
 
   const getCheckboxState = (item: ReceiptItem, participant: string) => {
-    if (item.qty === 1) {
+    if (item.qty === 1 || item.shareEqually) {
       return item.shared_by?.includes(participant) || false;
     }
     return (item.shared_by?.filter(p => p === participant).length || 0) > 0;
@@ -1069,7 +1087,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
   const getUnassignedItems = () => {
     return items.filter(item => {
-      if (item.qty === 1) {
+      if (item.qty === 1 || item.shareEqually) {
         return !item.shared_by || item.shared_by.length === 0;
       }
       const assignedQty = item.shared_by?.length || 0;
@@ -1085,15 +1103,23 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     let totalUnits = 0;
     let assignedUnits = 0;
     items.forEach(item => {
-      const qty = item.qty || 1;
-      totalUnits += qty;
-      if (item.qty === 1) {
+      if (item.shareEqually) {
+        // For share equally items, we only need someone to be assigned
+        totalUnits += 1;
         if (item.shared_by && item.shared_by.length > 0) {
           assignedUnits += 1;
         }
       } else {
-        const claimed = Math.min(item.shared_by?.length || 0, item.qty);
-        assignedUnits += claimed;
+        const qty = item.qty || 1;
+        totalUnits += qty;
+        if (item.qty === 1) {
+          if (item.shared_by && item.shared_by.length > 0) {
+            assignedUnits += 1;
+          }
+        } else {
+          const claimed = Math.min(item.shared_by?.length || 0, item.qty);
+          assignedUnits += claimed;
+        }
       }
     });
     return totalUnits === 0 ? 100 : Math.round((assignedUnits / totalUnits) * 100);
@@ -1122,11 +1148,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     let total = 0;
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      if (item.qty === 1) {
+      
+      if (item.shareEqually) {
+        // For share equally items, split the total cost among all assigned participants
+        if (item.shared_by && item.shared_by.includes(participant)) {
+          const totalCost = price * item.qty;
+          total += totalCost / (item.shared_by.length || 1);
+        }
+      } else if (item.qty === 1) {
+        // For single quantity items, share the cost among assigned participants
         if (item.shared_by && item.shared_by.includes(participant)) {
           total += price / (item.shared_by.length || 1);
         }
       } else {
+        // For discrete multi-unit items, each participant pays for their assigned units
         const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
         total += price * participantQty;
       }
@@ -1141,13 +1176,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           item.shared_by = [];
         }
         
-        if (item.qty === 1) {
-          // For single quantity items, just add participant once if not already included
+        if (item.qty === 1 || item.shareEqually) {
+          // For single quantity items or share equally items, just add participant once if not already included
           if (!item.shared_by.includes(participant)) {
             item.shared_by.push(participant);
           }
         } else {
-          // For multiple quantity items, assign all remaining units to this participant
+          // For multiple quantity discrete items, assign all remaining units to this participant
           const currentParticipantQty = item.shared_by.filter(p => p === participant).length;
           const totalAssigned = item.shared_by.length;
           const remainingUnits = item.qty - totalAssigned;
@@ -1200,7 +1235,18 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
     items.forEach(item => {
       const price = item.converted_price || item.price;
-      if (item.qty === 1) {
+      
+      if (item.shareEqually) {
+        // For share equally items, split the total cost among all assigned participants
+        if (item.shared_by && item.shared_by.length > 0) {
+          const totalCost = price * item.qty;
+          const perPerson = totalCost / item.shared_by.length;
+          item.shared_by.forEach(p => {
+            totals[p] += perPerson;
+          });
+        }
+      } else if (item.qty === 1) {
+        // For single quantity items, share the cost among assigned participants
         if (item.shared_by && item.shared_by.length > 0) {
           const perPerson = price / item.shared_by.length;
           item.shared_by.forEach(p => {
@@ -1208,6 +1254,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           });
         }
       } else {
+        // For discrete multi-unit items, each participant pays for their assigned units
         item.shared_by?.forEach(p => {
           totals[p] += price; // each duplicate counts one unit
         });
@@ -1865,12 +1912,39 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             <Box key={participant} sx={{ height: '100%', display: 'flex' }}>
               <IndividualReceiptCard>
                 <ReceiptHeader>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                      {participant}'s Receipt
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary', mb: 1 }}>
+                        {participant}'s Receipt
+                      </Typography>
+                      {/* Translation Toggle */}
+                      {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <Switch
+                            size="small"
+                            checked={showOriginalLanguage}
+                            onChange={(e) => setShowOriginalLanguage(e.target.checked)}
+                            sx={{
+                              '& .MuiSwitch-switchBase.Mui-checked': {
+                                color: 'primary.main',
+                              },
+                              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                backgroundColor: 'primary.main',
+                              },
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ 
+                            color: 'text.secondary',
+                            fontSize: '0.75rem',
+                          }}>
+                            {showOriginalLanguage ? 'Show in English' : `Show in ${detectedLanguage}`}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
                     <AnimatedGradientText variant="h4" sx={{ 
-                      fontWeight: 600
+                      fontWeight: 600,
+                      flexShrink: 0
                     }}>
                       {formatCurrency(getParticipantTotal(participant), targetCurrency)}
                     </AnimatedGradientText>
@@ -1960,7 +2034,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
                             }}>
-                              {item.item}
+                              {showOriginalLanguage && item.originalItem ? item.originalItem : item.item}
                             </Typography>
                             {isSpecialItem && (
                               <Box sx={{ 
@@ -2040,10 +2114,56 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               </Box>
                             )}
                           </Box>
+                          
+                          {/* Share Equally Toggle - only show for non-special items with qty > 1 */}
+                          {!isSpecialItem && item.qty > 1 && (
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: 1,
+                              mt: 1,
+                              mb: 0.5
+                            }}>
+                              <Switch
+                                size="small"
+                                checked={item.shareEqually || false}
+                                onChange={(e) => {
+                                  const updatedItems = items.map((it, idx) => {
+                                    if (idx === itemIndex) {
+                                      return {
+                                        ...it,
+                                        shareEqually: e.target.checked,
+                                        shared_by: [] // Reset assignments when switching modes
+                                      };
+                                    }
+                                    return it;
+                                  });
+                                  setItems(updatedItems);
+                                }}
+                                sx={{
+                                  '& .MuiSwitch-switchBase.Mui-checked': {
+                                    color: 'primary.main',
+                                  },
+                                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                    backgroundColor: 'primary.main',
+                                  },
+                                }}
+                              />
+                              <Typography variant="caption" sx={{ 
+                                color: 'text.secondary',
+                                fontSize: '0.75rem',
+                              }}>
+                                {item.shareEqually ? 'Split cost equally among selected people' : 'Split evenly'}
+                              </Typography>
+                            </Box>
+                          )}
+                          
                           <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '0.9rem', mt: 0.5 }}>
                             {isSpecialItem 
                               ? `Split among ${totalAssigned} people`
-                              : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}${assignmentSummary ? ` | ${assignmentSummary}` : ''}`
+                              : item.shareEqually 
+                                ? `Cost split equally among ${item.shared_by?.length || 0} people`
+                                : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}${assignmentSummary ? ` | ${assignmentSummary}` : ''}`
                             }
                           </Typography>
                         </Box>
@@ -2060,7 +2180,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               : formatCurrency((item.converted_price || item.price) * item.qty, targetCurrency)
                             }
                           </Typography>
-                          {item.qty === 1 ? (
+                          {item.qty === 1 || item.shareEqually ? (
                             <PulsingCheckbox
                               checked={getCheckboxState(item, currentParticipant)}
                               onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
@@ -2219,10 +2339,38 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 <Typography variant="body1" sx={{ 
                   color: 'text.secondary',
                   fontWeight: 400,
+                  mb: 2,
                 }}>
                   Here's who owes what
                 </Typography>
               </Fade>
+              
+              {/* Translation Toggle for Summary */}
+              {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
+                <Fade in timeout={1400}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
+                    <Switch
+                      size="small"
+                      checked={showOriginalLanguage}
+                      onChange={(e) => setShowOriginalLanguage(e.target.checked)}
+                      sx={{
+                        '& .MuiSwitch-switchBase.Mui-checked': {
+                          color: 'primary.main',
+                        },
+                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                          backgroundColor: 'primary.main',
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ 
+                      color: 'text.secondary',
+                      fontSize: '0.8rem',
+                    }}>
+                      {showOriginalLanguage ? 'Show items in English' : `Show items in ${detectedLanguage}`}
+                    </Typography>
+                  </Box>
+                </Fade>
+              )}
             </Box>
 
             {/* Participant Cards */}
@@ -2446,11 +2594,25 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       item.shared_by?.includes(selectedParticipant)
     ).map(item => {
       const sharedBy = item.shared_by || [];
-      const participantQty = item.qty === 1 ? 1 : sharedBy.filter(p => p === selectedParticipant).length;
       const itemTotal = item.converted_price || item.price;
-      const participantShare = item.qty === 1 
-        ? itemTotal / sharedBy.length 
-        : itemTotal * participantQty;
+      
+      let participantQty: number;
+      let participantShare: number;
+      
+      if (item.shareEqually) {
+        // For share equally items, participant gets an equal share of the total cost
+        participantQty = 1; // Conceptually 1 "share"
+        const totalCost = itemTotal * item.qty;
+        participantShare = totalCost / sharedBy.length;
+      } else if (item.qty === 1) {
+        // For single quantity items, share the cost
+        participantQty = 1;
+        participantShare = itemTotal / sharedBy.length;
+      } else {
+        // For discrete multi-unit items, count actual units assigned
+        participantQty = sharedBy.filter(p => p === selectedParticipant).length;
+        participantShare = itemTotal * participantQty;
+      }
       
       return {
         ...item,
@@ -2473,11 +2635,12 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           <Zoom in timeout={600}>
             <SummaryCard>
               {/* Header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
                 <IconButton
                   onClick={() => setCurrentStepWithLog('summary')}
                   sx={{ 
                     mr: 2,
+                    mt: 0.5,
                     color: 'text.secondary',
                     '&:hover': { color: 'primary.main' }
                   }}
@@ -2493,10 +2656,36 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                     {selectedParticipant}'s Receipt
                   </Typography>
                   <Typography variant="body2" sx={{ 
-                    color: 'text.secondary'
+                    color: 'text.secondary',
+                    mb: detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' ? 1 : 0
                   }}>
                     Detailed breakdown of items and costs
                   </Typography>
+                  
+                  {/* Translation Toggle for Individual Receipt */}
+                  {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Switch
+                        size="small"
+                        checked={showOriginalLanguage}
+                        onChange={(e) => setShowOriginalLanguage(e.target.checked)}
+                        sx={{
+                          '& .MuiSwitch-switchBase.Mui-checked': {
+                            color: 'primary.main',
+                          },
+                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                            backgroundColor: 'primary.main',
+                          },
+                        }}
+                      />
+                      <Typography variant="caption" sx={{ 
+                        color: 'text.secondary',
+                        fontSize: '0.75rem',
+                      }}>
+                        {showOriginalLanguage ? 'Show in English' : `Show in ${detectedLanguage}`}
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </Box>
 
@@ -2534,7 +2723,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         mb: 0.5,
                         fontSize: '0.95rem'
                       }}>
-                        {item.item}
+                        {showOriginalLanguage && item.originalItem ? item.originalItem : item.item}
                         {item.isSpecialItem && (
                           <Chip
                             size="small"
@@ -2550,8 +2739,17 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         )}
                       </Typography>
                       
-                      {item.qty === 1 ? (
-                        // Shared item
+                      {item.shareEqually ? (
+                        // Share equally item
+                        <Typography variant="body2" sx={{ 
+                          color: 'text.secondary',
+                          fontSize: '0.85rem',
+                          mb: 0.5
+                        }}>
+                          Cost split equally among {item.totalSharedBy} people ({item.sharedWith.length > 0 ? `with ${item.sharedWith.join(', ')}` : 'just you'})
+                        </Typography>
+                      ) : item.qty === 1 ? (
+                        // Single shared item
                         <Typography variant="body2" sx={{ 
                           color: 'text.secondary',
                           fontSize: '0.85rem',
@@ -2563,7 +2761,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                           }
                         </Typography>
                       ) : (
-                        // Multiple quantity item
+                        // Multiple quantity discrete item
                         <Typography variant="body2" sx={{ 
                           color: 'text.secondary',
                           fontSize: '0.85rem',
@@ -2577,9 +2775,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         color: 'text.secondary',
                         fontSize: '0.75rem'
                       }}>
-                        {item.qty === 1 
-                          ? `${formatCurrency(item.converted_price || item.price, targetCurrency)} ÷ ${item.totalSharedBy} people`
-                          : `${formatCurrency(item.converted_price || item.price, targetCurrency)} × ${item.participantQty}`
+                        {item.shareEqually 
+                          ? `(${formatCurrency(item.converted_price || item.price, targetCurrency)} × ${item.qty}) ÷ ${item.totalSharedBy} people`
+                          : item.qty === 1 
+                            ? `${formatCurrency(item.converted_price || item.price, targetCurrency)} ÷ ${item.totalSharedBy} people`
+                            : `${formatCurrency(item.converted_price || item.price, targetCurrency)} × ${item.participantQty}`
                         }
                       </Typography>
                     </Box>

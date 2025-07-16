@@ -3,6 +3,7 @@ import axios from 'axios';
 
 interface ReceiptItem {
   item: string;
+  originalItem?: string;
   price: number;
   qty: number;
   total: number;
@@ -15,6 +16,7 @@ interface ReceiptItem {
 
 interface ProcessedItem {
   item: string;
+  originalItem?: string;
   price: number;
   qty: number;
   total: number;
@@ -99,6 +101,7 @@ export default async function handler(
     // Convert the items to the format expected by convertPrices
     const processedItems: ProcessedItem[] = items.map((item: ReceiptItem) => ({
       item: item.item,
+      originalItem: item.originalItem,
       price: item.price,
       qty: item.qty,
       total: item.total,
@@ -120,6 +123,7 @@ export default async function handler(
     // Convert back to ReceiptItem format
     const result: ReceiptItem[] = convertedItems.map((item, index) => ({
       item: item.item,
+      originalItem: item.originalItem,
       price: item.price,
       qty: item.qty,
       total: item.total,

@@ -20,6 +20,7 @@ export const config = {
 
 interface ReceiptItem {
   name: string;
+  originalName?: string; // Original language name from receipt
   quantity: number;
   price: number;
   currency: string;
@@ -247,7 +248,8 @@ async function processReceiptWithGPT(imageBase64?: string, receiptText?: string)
   const prompt = `Please analyze this receipt ${imageBase64 ? 'image' : 'text'} and extract the following information:
 
 1. Extract each receipt item with:
-   - English name (translate if needed)
+   - Original name (exactly as written on receipt)
+   - English name (translate if needed, or same as original if already in English)
    - quantity (BE VERY CAREFUL with quantity detection)
    - price per unit in ORIGINAL currency (not total)
    - If the total price is listed (e.g. 3 items for $7.50), infer unit price as 7.50 / 3
@@ -279,6 +281,7 @@ Return the information in this exact JSON format:
   "items": [
     {
       "name": "item name in English",
+      "originalName": "original item name as written on receipt",
       "quantity": 1,
       "price": 0.00,
       "currency": "USD",
@@ -317,7 +320,8 @@ Return the information in this exact JSON format:
 
 Important:
 - Return ONLY valid JSON, no additional text
-- Translate item names to English
+- Provide both original and English names for all items
+- For special items (tax, tip, etc.), use English names for both fields unless they appear in another language on the receipt
 - Keep prices in ORIGINAL currency - DO NOT convert currencies
 - Detect currency from symbols ($, €, £, ¥, etc.) or context
 - If quantity is not specified, default to 1
@@ -574,6 +578,7 @@ export default async function handler(
       })
       .map(item => ({
         item: item.name,
+        originalItem: item.originalName,
         price: Math.abs(item.price),
         qty: item.quantity,
         total: Math.abs(item.price) * item.quantity,
