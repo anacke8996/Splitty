@@ -40,6 +40,7 @@ import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { API_ENDPOINTS } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 import Switch from '@mui/material/Switch';
 import GroupIcon from '@mui/icons-material/Group';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -434,6 +435,7 @@ const formatCurrency = (amount: number, currency: string) => {
 const steps = ['Processing', 'Review Items', 'Add Names', 'Assign Items', 'Summary'];
 
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -856,6 +858,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(session?.access_token && {
+            'Authorization': `Bearer ${session.access_token}`
+          }),
         },
         body: JSON.stringify({
           imageBase64: processedImageData,

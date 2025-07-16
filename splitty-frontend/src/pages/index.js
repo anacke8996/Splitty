@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReceiptProcessor from '../components/ReceiptProcessor';
+import ProtectedLayout from '../components/ProtectedLayout';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { styled } from '@mui/material/styles';
@@ -48,30 +49,38 @@ const ReceiptContainer = styled('div')(({ theme }) => ({
 }));
 
 const UploadButton = styled(Button)(({ theme }) => ({
-  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-  color: '#fff',
-  borderRadius: 16,
-  padding: '16px 40px',
-  fontWeight: 500,
-  fontSize: '1.125rem',
+  padding: '14px 32px',
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  borderRadius: 12,
   textTransform: 'none',
-  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-  letterSpacing: 0.2,
-  transition: 'all 0.2s',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: theme.spacing(1.5),
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+  border: 'none',
+  boxShadow: '0 4px 16px 0 rgba(59, 130, 246, 0.3)',
+  transition: 'all 0.2s ease-in-out',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  letterSpacing: '-0.01em',
   '&:hover': {
     background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)',
     transform: 'translateY(-1px)',
+    boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.4)',
+  },
+  '&:active': {
+    transform: 'translateY(0px)',
   },
 }));
 
-// Circum-Icons Receipt SVG as React component
-const ReceiptIconCircum = ({ size = 38, style = {} }) => (
+const ReceiptIconCircum = ({ size = 38, ...props }) => {
+  const theme = useTheme();
+  const style = {
+    width: size,
+    height: size,
+    ...props.style
+  };
+
+  return (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    {...props}
     width={size}
     height={size}
     fill="none"
@@ -93,6 +102,7 @@ const ReceiptIconCircum = ({ size = 38, style = {} }) => (
     />
   </svg>
 );
+};
 
 export default function Home() {
     const [imageData, setImageData] = useState(null);
@@ -122,78 +132,82 @@ export default function Home() {
 
     if (showProcessor && imageData) {
         return (
-            <ReceiptProcessor
-                imageData={imageData}
-                onComplete={handleProcessingComplete}
-            />
+            <ProtectedLayout>
+                <ReceiptProcessor
+                    imageData={imageData}
+                    onComplete={handleProcessingComplete}
+                />
+            </ProtectedLayout>
         );
     }
 
     return (
-        <Box
-            sx={{
-                minHeight: '100vh',
-                width: '100vw',
-                background: 'background.default',
-                fontFamily: 'Inter, Lato, system-ui, sans-serif',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-            }}
-        >
-            <Box sx={{ width: '100%', maxWidth: 420, mx: 'auto', px: { xs: 2, sm: 0 }, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', py: 8 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, mt: 2 }}>
-                  <GradientTitle>Splitty</GradientTitle>
-                  <ReceiptIconCircum style={{ verticalAlign: 'middle', marginLeft: 8 }} />
-                </Box>
-                <Typography
-                    variant="subtitle1"
-                    sx={{
-                        color: 'text.secondary',
-                        fontWeight: 300,
-                        fontSize: '0.97rem',
-                        mt: 0,
-                        mb: 5,
-                        letterSpacing: 0,
-                    }}
-                >
-                    Split your bills with ease
-                </Typography>
-                <Box sx={{ mt: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <input
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        id="receipt-upload"
-                        type="file"
-                        onChange={handleImageUpload}
-                    />
-                    <label htmlFor="receipt-upload">
-                        <UploadButton
-                            variant="contained"
-                            component="span"
-                            startIcon={<CloudUploadIcon sx={{ fontSize: 28 }} />}
-                            size="large"
-                        >
-                            Upload Receipt
-                        </UploadButton>
-                    </label>
+        <ProtectedLayout>
+            <Box
+                sx={{
+                    minHeight: 'calc(100vh - 64px)', // Subtract AppBar height
+                    width: '100vw',
+                    background: 'background.default',
+                    fontFamily: 'Inter, Lato, system-ui, sans-serif',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                }}
+            >
+                <Box sx={{ width: '100%', maxWidth: 420, mx: 'auto', px: { xs: 2, sm: 0 }, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', py: 8 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, mt: 2 }}>
+                      <GradientTitle>Splitty</GradientTitle>
+                      <ReceiptIconCircum style={{ verticalAlign: 'middle', marginLeft: 8 }} />
+                    </Box>
                     <Typography
-                        align="center"
+                        variant="subtitle1"
                         sx={{
                             color: 'text.secondary',
-                            fontSize: '0.91rem',
                             fontWeight: 300,
-                            mt: 5,
-                            mb: 0,
+                            fontSize: '0.97rem',
+                            mt: 0,
+                            mb: 5,
                             letterSpacing: 0,
-                            fontFamily: 'Inter, system-ui, sans-serif',
                         }}
                     >
-                        Supported formats: JPG, PNG, JPEG
+                        Split your bills with ease
                     </Typography>
+                    <Box sx={{ mt: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <input
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id="receipt-upload"
+                            type="file"
+                            onChange={handleImageUpload}
+                        />
+                        <label htmlFor="receipt-upload">
+                            <UploadButton
+                                variant="contained"
+                                component="span"
+                                startIcon={<CloudUploadIcon sx={{ fontSize: 28 }} />}
+                                size="large"
+                            >
+                                Upload Receipt
+                            </UploadButton>
+                        </label>
+                        <Typography
+                            align="center"
+                            sx={{
+                                color: 'text.secondary',
+                                fontSize: '0.91rem',
+                                fontWeight: 300,
+                                mt: 5,
+                                mb: 0,
+                                letterSpacing: 0,
+                                fontFamily: 'Inter, system-ui, sans-serif',
+                            }}
+                        >
+                            Supported formats: JPG, PNG, JPEG
+                        </Typography>
+                    </Box>
                 </Box>
             </Box>
-        </Box>
+        </ProtectedLayout>
     );
 } 

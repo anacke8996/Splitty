@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { supabase } from '../../config/supabase';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -9,6 +10,27 @@ const openai = new OpenAI({
 // Test client initialization
 console.log('OpenAI client initialized:', !!openai);
 console.log('API key configured:', !!process.env.OPENAI_API_KEY);
+
+// Helper function to get user from authorization header
+async function getUserFromAuth(req: NextApiRequest) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.split(' ')[1];
+  
+  // Create a client with the user's session token
+  const supabaseWithAuth = supabase.auth.admin || supabase;
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    console.error('Auth error:', error);
+    return null;
+  }
+  
+  return { user, token };
+}
 
 export const config = {
   api: {
@@ -590,7 +612,8 @@ export default async function handler(
         specialType: item.specialType
       }));
 
-    return res.status(200).json({
+    // Prepare response data
+    const responseData = {
       success: true,
       restaurantName: result.restaurantName,
       items: transformedItems,
@@ -600,7 +623,65 @@ export default async function handler(
       subtotal: result.subtotal,
       taxIncluded: result.taxIncluded,
       taxInclusionReason: result.taxInclusionReason
-    });
+    };
+
+    // Try to save to database if user is authenticated (optional - don't fail if no auth)
+    try {
+      const authResult = await getUserFromAuth(req);
+      if (authResult) {
+        const { user, token } = authResult;
+        console.log('Saving receipt to database for user:', user.id);
+        
+        // Create authenticated Supabase client
+        const { createClient } = await import('@supabase/supabase-js');
+        const authenticatedSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          }
+        );
+        
+        // Convert items to database format
+        const dbItems = transformedItems.map(item => ({
+          name: item.item,
+          originalName: item.originalItem || item.item,
+          price: item.price,
+          assignedTo: [], // Will be populated when bill is split
+          type: item.isSpecialItem ? 'discrete' : 'regular' as 'regular' | 'shared' | 'discrete'
+        }));
+
+        const { error: dbError } = await authenticatedSupabase
+          .from('receipts')
+          .insert({
+            user_id: user.id,
+            restaurant_name: result.restaurantName || 'Unknown Restaurant',
+            total_amount: result.total,
+            currency: result.currency,
+            receipt_items: dbItems,
+            participants: [], // Will be updated when bill is split
+            split_results: [] // Will be updated when bill is split
+          });
+
+        if (dbError) {
+          console.error('Database save error:', dbError);
+          // Don't fail the request - just log the error
+        } else {
+          console.log('Receipt saved to database successfully');
+        }
+      } else {
+        console.log('No authenticated user - skipping database save');
+      }
+    } catch (dbError) {
+      console.error('Database save attempt failed:', dbError);
+      // Don't fail the request - database saving is optional
+    }
+
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('Error processing receipt:', error);
