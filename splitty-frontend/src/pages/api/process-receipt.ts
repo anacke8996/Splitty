@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
-import axios from 'axios';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -512,45 +511,6 @@ Special items should have quantity=1 and price=total amount`;
   }
 }
 
-// Keep the existing currency conversion logic for downstream use
-async function convertPrices(
-  items: ProcessedItem[], 
-  fromCurrency: string, 
-  toCurrency: string
-): Promise<ProcessedItem[]> {
-  if (fromCurrency === toCurrency) {
-    return items;
-  }
-
-  try {
-    const response = await axios.get(
-      `https://api.freecurrencyapi.com/v1/latest?apikey=${process.env.FREECURRENCY_API_KEY}&currencies=${toCurrency}&base_currency=${fromCurrency}`
-    );
-
-    const rawRate = response.data.data[toCurrency];
-    
-    if (!rawRate) {
-      console.error(`No exchange rate found for ${fromCurrency} to ${toCurrency}`);
-      return items;
-    }
-
-    // Round the exchange rate to 3 decimal places for more predictable calculations
-    const rate = Number(rawRate.toFixed(2));
-
-    console.log(`Exchange rate ${fromCurrency} to ${toCurrency}: ${rawRate} → rounded to ${rate}`);
-
-    return items.map(item => ({
-      ...item,
-      converted_price: Number((item.price * rate).toFixed(2)),
-      converted_total: Number((item.total * rate).toFixed(2))
-    }));
-
-  } catch (error) {
-    console.error('Failed to get exchange rate:', error);
-    return items;
-  }
-}
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -614,9 +574,9 @@ export default async function handler(
       })
       .map(item => ({
         item: item.name,
-        price: item.price,
+        price: Math.abs(item.price),
         qty: item.quantity,
-        total: item.price * item.quantity,
+        total: Math.abs(item.price) * item.quantity,
         isSpecialItem: item.isSpecialItem || false,
         specialType: item.specialType
       }));

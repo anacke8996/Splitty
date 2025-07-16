@@ -44,3 +44,6 @@ ehthumbs.db
 Thumbs.db 
 node_modules
 .vercel
+
+# Next.js build output
+.next/

@@ -440,7 +440,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [newParticipant, setNewParticipant] = useState('');
   const [sourceCurrency, setSourceCurrency] = useState('');
   const [targetCurrency, setTargetCurrency] = useState('USD');
-  const [currentStep, setCurrentStep] = useState<'loading' | 'review' | 'currency' | 'participants' | 'assignments' | 'summary'>('loading');
+  const [currentStep, setCurrentStep] = useState<'loading' | 'review' | 'currency' | 'participants' | 'assignments' | 'summary' | 'individual'>('loading');
   
   // Debug step changes
   const setCurrentStepWithLog = (newStep: typeof currentStep) => {
@@ -454,6 +454,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [currentParticipantIndex, setCurrentParticipantIndex] = useState(0);
   const [taxIncluded, setTaxIncluded] = useState<boolean>(false);
   const [taxInclusionReason, setTaxInclusionReason] = useState<string>('');
+  const [selectedParticipant, setSelectedParticipant] = useState<string>('');
   
   // New state for review step
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
@@ -2207,32 +2208,58 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             </Box>
 
             {/* Participant Cards */}
-            <Box sx={{ mb: 5, px: 1 }}>
+            <Box sx={{ mb: 4 }}>
               {Object.entries(userTotals).map(([participant, amount], index) => (
                 <Slide direction="up" in timeout={1000 + index * 200} key={participant}>
-                  <ParticipantCard>
+                  <Box
+                    onClick={() => {
+                      setSelectedParticipant(participant);
+                      setCurrentStepWithLog('individual');
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      p: 3,
+                      mb: 2,
+                      borderRadius: 3,
+                      background: theme.palette.background.paper,
+                      border: `1px solid ${theme.palette.divider}`,
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                        transform: 'translateY(-1px)',
+                        borderColor: theme.palette.primary.main,
+                      },
+                    }}
+                  >
+                    {/* Left side - Avatar and name */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
                       <Box sx={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        width: 50,
-                        height: 50,
+                        width: 56,
+                        height: 56,
                         borderRadius: '50%',
                         background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                         color: 'primary.contrastText',
-                        mr: 4,
+                        mr: 3,
                         flexShrink: 0,
-                        boxShadow: '0 2px 6px rgba(59, 130, 246, 0.25)',
+                        boxShadow: '0 3px 12px rgba(59, 130, 246, 0.3)',
+                        fontSize: '1.5rem',
+                        fontWeight: 600,
                       }}>
-                        <PersonIcon sx={{ fontSize: 20 }} />
+                        {participant.charAt(0).toUpperCase()}
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography variant="h6" sx={{ 
                           fontWeight: 600, 
                           color: 'text.primary',
-                          mb: 0.25,
-                          fontSize: '1rem',
+                          mb: 0.5,
+                          fontSize: '1.25rem',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -2241,30 +2268,47 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         </Typography>
                         <Typography variant="body2" sx={{ 
                           color: 'text.secondary',
-                          fontSize: '0.875rem',
+                          fontSize: '0.9rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
                         }}>
-                          {Math.round((amount / totalAmount) * 100)}% of total
+                          <span>{Math.round((amount / totalAmount) * 100)}% of total</span>
+                          <span style={{ color: theme.palette.primary.main, fontSize: '0.8rem' }}>
+                            • Click for details
+                          </span>
                         </Typography>
                       </Box>
                     </Box>
-                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                      <Typography variant="h6" sx={{ 
-                        fontWeight: 600,
-                        color: 'text.primary',
-                        fontSize: '1.1rem',
-                        lineHeight: 1.2,
-                      }}>
-                        {formatCurrency(amount, targetCurrency)}
-                      </Typography>
-                      <Typography variant="body2" sx={{ 
+
+                    {/* Right side - Amount and arrow */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="h5" sx={{ 
+                          fontWeight: 700,
+                          color: 'text.primary',
+                          fontSize: '1.5rem',
+                          lineHeight: 1.1,
+                          mb: 0.25,
+                        }}>
+                          {formatCurrency(amount, targetCurrency)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ 
+                          color: 'text.secondary',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
+                          letterSpacing: '0.5px',
+                        }}>
+                          {targetCurrency}
+                        </Typography>
+                      </Box>
+                      <ArrowForwardIosIcon sx={{ 
+                        fontSize: 18, 
                         color: 'text.secondary',
-                        fontSize: '0.8rem',
-                        mt: 0.25,
-                      }}>
-                        {targetCurrency}
-                      </Typography>
+                        opacity: 0.7,
+                      }} />
                     </Box>
-                  </ParticipantCard>
+                  </Box>
                 </Slide>
               ))}
             </Box>
@@ -2375,7 +2419,238 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     );
   }
 
+  // Individual participant receipt view
+  if (currentStep === 'individual' && selectedParticipant) {
+    const participantTotal = userTotals[selectedParticipant] || 0;
+    
+    // Get items assigned to this participant with their share details
+    const participantItems = items.filter(item => 
+      item.shared_by?.includes(selectedParticipant)
+    ).map(item => {
+      const sharedBy = item.shared_by || [];
+      const participantQty = item.qty === 1 ? 1 : sharedBy.filter(p => p === selectedParticipant).length;
+      const itemTotal = item.converted_price || item.price;
+      const participantShare = item.qty === 1 
+        ? itemTotal / sharedBy.length 
+        : itemTotal * participantQty;
+      
+      return {
+        ...item,
+        participantQty,
+        participantShare,
+        sharedWith: sharedBy.filter(p => p !== selectedParticipant),
+        totalSharedBy: sharedBy.length
+      };
+    });
 
+    return (
+      <Box sx={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: 2 
+      }}>
+        <Box sx={{ maxWidth: 480, width: '100%' }}>
+          <Zoom in timeout={600}>
+            <SummaryCard>
+              {/* Header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <IconButton
+                  onClick={() => setCurrentStepWithLog('summary')}
+                  sx={{ 
+                    mr: 2,
+                    color: 'text.secondary',
+                    '&:hover': { color: 'primary.main' }
+                  }}
+                >
+                  <ArrowBackIcon />
+                </IconButton>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 600, 
+                    color: 'text.primary',
+                    mb: 0.5
+                  }}>
+                    {selectedParticipant}'s Receipt
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.secondary'
+                  }}>
+                    Detailed breakdown of items and costs
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Items List */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 600, 
+                  color: 'text.primary',
+                  mb: 2,
+                  fontSize: '1.1rem'
+                }}>
+                  Items ({participantItems.length})
+                </Typography>
+                
+                {participantItems.map((item, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      py: 2,
+                      px: 2,
+                      mb: 1.5,
+                      borderRadius: 2,
+                      background: 'background.default',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
+                      <Typography variant="body1" sx={{ 
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        mb: 0.5,
+                        fontSize: '0.95rem'
+                      }}>
+                        {item.item}
+                        {item.isSpecialItem && (
+                          <Chip
+                            size="small"
+                            label={item.specialType?.toUpperCase() || 'SPECIAL'}
+                            sx={{ 
+                              ml: 1,
+                              fontSize: '0.7rem',
+                              height: 20,
+                              backgroundColor: item.specialType === 'tax' ? 'warning.main' : 'info.main',
+                              color: 'white'
+                            }}
+                          />
+                        )}
+                      </Typography>
+                      
+                      {item.qty === 1 ? (
+                        // Shared item
+                        <Typography variant="body2" sx={{ 
+                          color: 'text.secondary',
+                          fontSize: '0.85rem',
+                          mb: 0.5
+                        }}>
+                          {item.isSpecialItem 
+                            ? `Split among ${item.totalSharedBy} people`
+                            : `Shared with ${item.sharedWith.length > 0 ? item.sharedWith.join(', ') : 'no one else'}`
+                          }
+                        </Typography>
+                      ) : (
+                        // Multiple quantity item
+                        <Typography variant="body2" sx={{ 
+                          color: 'text.secondary',
+                          fontSize: '0.85rem',
+                          mb: 0.5
+                        }}>
+                          You got {item.participantQty} of {item.qty} × {formatCurrency(item.converted_price || item.price, targetCurrency)}
+                        </Typography>
+                      )}
+                      
+                      <Typography variant="caption" sx={{ 
+                        color: 'text.secondary',
+                        fontSize: '0.75rem'
+                      }}>
+                        {item.qty === 1 
+                          ? `${formatCurrency(item.converted_price || item.price, targetCurrency)} ÷ ${item.totalSharedBy} people`
+                          : `${formatCurrency(item.converted_price || item.price, targetCurrency)} × ${item.participantQty}`
+                        }
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                      <Typography variant="body1" sx={{ 
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        fontSize: '1rem'
+                      }}>
+                        {formatCurrency(item.participantShare, targetCurrency)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+
+              {/* Total Section */}
+              <Box sx={{ 
+                p: 3,
+                borderRadius: 2,
+                background: `rgba(59, 130, 246, 0.05)`,
+                border: '1px solid',
+                borderColor: 'primary.light',
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)',
+                mb: 3
+              }}>
+                <Box sx={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ 
+                      color: 'text.secondary', 
+                      mb: 0.5,
+                      fontSize: '0.875rem',
+                    }}>
+                      Total Amount
+                    </Typography>
+                    <Typography variant="h4" sx={{ 
+                      fontWeight: 700,
+                      color: 'text.primary',
+                    }}>
+                      {formatCurrency(participantTotal, targetCurrency)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                    color: 'primary.contrastText',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  }}>
+                    <PersonIcon sx={{ fontSize: 24 }} />
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Back Button */}
+              <Button
+                variant="outlined"
+                onClick={() => setCurrentStepWithLog('summary')}
+                startIcon={<ArrowBackIcon />}
+                fullWidth
+                sx={{ 
+                  py: 1.5, 
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                  },
+                }}
+              >
+                Back to Summary
+              </Button>
+            </SummaryCard>
+          </Zoom>
+        </Box>
+      </Box>
+    );
+  }
 
   return null;
 };
