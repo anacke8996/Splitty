@@ -459,6 +459,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [selectedParticipant, setSelectedParticipant] = useState<string>('');
   const [detectedLanguage, setDetectedLanguage] = useState<string>('');
   const [showOriginalLanguage, setShowOriginalLanguage] = useState<boolean>(false);
+  const [restaurantName, setRestaurantName] = useState<string>('');
   
 
   
@@ -909,6 +910,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         setTargetCurrency(data.currency);
         setOriginalTotal(data.total || 0);
         setDetectedLanguage(data.language || '');
+        setRestaurantName(data.restaurantName || '');
         
         // Original item names are now included in the initial API response
         
@@ -2308,72 +2310,58 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
         <Zoom in timeout={800}>
           <SummaryCard>
-            {/* Header Section */}
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
+            {/* Receipt Header */}
+            <Box sx={{ textAlign: 'center', mb: 4, borderBottom: '2px dashed', borderColor: 'divider', pb: 3 }}>
               <Fade in timeout={800}>
+                <Typography variant="h4" sx={{ 
+                  fontWeight: 700, 
+                  mb: 1, 
+                  color: 'text.primary',
+                  fontFamily: 'monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  {restaurantName || 'RECEIPT'}
+                </Typography>
+              </Fade>
+              <Fade in timeout={1000}>
+                <Typography variant="body2" sx={{ 
+                  color: 'text.secondary',
+                  fontFamily: 'monospace',
+                  mb: 2,
+                }}>
+                  BILL SPLIT SUMMARY
+                </Typography>
+              </Fade>
+              <Fade in timeout={1200}>
                 <Box sx={{ 
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 64,
-                  height: 64,
+                  width: 48,
+                  height: 48,
                   borderRadius: '50%',
                   background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.dark})`,
                   color: 'success.contrastText',
                   mb: 2,
                   boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
                 }}>
-                  <CheckCircleIcon sx={{ fontSize: 36 }} />
+                  <CheckCircleIcon sx={{ fontSize: 24 }} />
                 </Box>
               </Fade>
-              <Fade in timeout={1000}>
-                <Typography variant="h4" sx={{ 
-                  fontWeight: 600, 
-                  mb: 1, 
-                  color: 'text.primary',
-                }}>
-                  Split Complete!
-                </Typography>
-              </Fade>
-              <Fade in timeout={1200}>
-                <Typography variant="body1" sx={{ 
+              <Fade in timeout={1400}>
+                <Typography variant="body2" sx={{ 
                   color: 'text.secondary',
-                  fontWeight: 400,
-                  mb: 2,
+                  fontFamily: 'monospace',
                 }}>
-                  Here's who owes what
+                  {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
                 </Typography>
               </Fade>
               
-              {/* Translation Toggle for Summary */}
-              {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
-                <Fade in timeout={1400}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
-                    <Switch
-                      size="small"
-                      checked={showOriginalLanguage}
-                      onChange={(e) => setShowOriginalLanguage(e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: 'primary.main',
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: 'primary.main',
-                        },
-                      }}
-                    />
-                    <Typography variant="caption" sx={{ 
-                      color: 'text.secondary',
-                      fontSize: '0.8rem',
-                    }}>
-                      {showOriginalLanguage ? 'Show items in English' : `Show items in ${detectedLanguage}`}
-                    </Typography>
-                  </Box>
-                </Fade>
-              )}
+
             </Box>
 
-            {/* Participant Cards */}
+            {/* Receipt Line Items */}
             <Box sx={{ mb: 4 }}>
               {Object.entries(userTotals).map(([participant, amount], index) => (
                 <Slide direction="up" in timeout={1000 + index * 200} key={participant}>
@@ -2386,92 +2374,50 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 3,
-                      mb: 2,
-                      borderRadius: 3,
-                      background: theme.palette.background.paper,
-                      border: `1px solid ${theme.palette.divider}`,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+                      p: 2,
+                      mb: 1,
+                      borderRadius: 1,
+                      background: 'transparent',
+                      borderBottom: `1px solid ${theme.palette.divider}`,
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
+                      fontFamily: 'monospace',
                       '&:hover': {
-                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-                        transform: 'translateY(-1px)',
-                        borderColor: theme.palette.primary.main,
+                        backgroundColor: theme.palette.action.hover,
+                        borderRadius: 2,
                       },
                     }}
                   >
-                    {/* Left side - Avatar and name */}
+                    {/* Left side - Name */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        width: 56,
-                        height: 56,
-                        borderRadius: '50%',
-                        background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                        color: 'primary.contrastText',
-                        mr: 3,
-                        flexShrink: 0,
-                        boxShadow: '0 3px 12px rgba(59, 130, 246, 0.3)',
-                        fontSize: '1.5rem',
-                        fontWeight: 600,
+                      <Typography variant="body1" sx={{ 
+                        fontWeight: 600, 
+                        color: 'text.primary',
+                        fontFamily: 'monospace',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}>
-                        {participant.charAt(0).toUpperCase()}
-                      </Box>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="h6" sx={{ 
-                          fontWeight: 600, 
-                          color: 'text.primary',
-                          mb: 0.5,
-                          fontSize: '1.25rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {participant}
-                        </Typography>
-                        <Typography variant="body2" sx={{ 
-                          color: 'text.secondary',
-                          fontSize: '0.9rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                        }}>
-                          <span>{Math.round((amount / totalAmount) * 100)}% of total</span>
-                          <span style={{ color: theme.palette.primary.main, fontSize: '0.8rem' }}>
-                            • Click for details
-                          </span>
-                        </Typography>
-                      </Box>
+                        {participant}
+                      </Typography>
                     </Box>
 
-                    {/* Right side - Amount and arrow */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="h5" sx={{ 
-                          fontWeight: 700,
-                          color: 'text.primary',
-                          fontSize: '1.5rem',
-                          lineHeight: 1.1,
-                          mb: 0.25,
-                        }}>
-                          {formatCurrency(amount, targetCurrency)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ 
-                          color: 'text.secondary',
-                          fontSize: '0.85rem',
-                          fontWeight: 500,
-                          letterSpacing: '0.5px',
-                        }}>
-                          {targetCurrency}
-                        </Typography>
-                      </Box>
+                    {/* Right side - Amount */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                      <Typography variant="body1" sx={{ 
+                        fontWeight: 700,
+                        color: 'text.primary',
+                        fontFamily: 'monospace',
+                        fontSize: '1.1rem',
+                      }}>
+                        {formatCurrency(amount, targetCurrency)}
+                      </Typography>
                       <ArrowForwardIosIcon sx={{ 
-                        fontSize: 18, 
+                        fontSize: 14, 
                         color: 'text.secondary',
-                        opacity: 0.7,
+                        opacity: 0.6,
                       }} />
                     </Box>
                   </Box>
@@ -2479,50 +2425,36 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               ))}
             </Box>
 
-            {/* Grand Total */}
+            {/* Receipt Total */}
             <Fade in timeout={1400}>
               <Box sx={{ 
-                p: 3,
-                mt: 3,
-                borderRadius: 2,
-                background: `rgba(59, 130, 246, 0.05)`,
-                border: '1px solid',
-                borderColor: 'primary.light',
-                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)',
+                borderTop: '2px solid',
+                borderColor: 'text.primary',
+                pt: 2,
+                mt: 2,
               }}>
                 <Box sx={{ 
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  fontFamily: 'monospace',
                 }}>
-                  <Box>
-                    <Typography variant="body2" sx={{ 
-                      color: 'text.secondary', 
-                      mb: 0.5,
-                      fontSize: '0.875rem',
-                    }}>
-                      Grand Total
-                    </Typography>
-                    <Typography variant="h4" sx={{ 
-                      fontWeight: 700,
-                      color: 'text.primary',
-                    }}>
-                      {formatCurrency(totalAmount, targetCurrency)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.dark})`,
-                    color: 'success.contrastText',
-                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 700,
+                    color: 'text.primary',
+                    fontFamily: 'monospace',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
                   }}>
-                    <AttachMoneyIcon sx={{ fontSize: 24 }} />
-                  </Box>
+                    TOTAL
+                  </Typography>
+                  <Typography variant="h5" sx={{ 
+                    fontWeight: 700,
+                    color: 'text.primary',
+                    fontFamily: 'monospace',
+                  }}>
+                    {formatCurrency(totalAmount, targetCurrency)}
+                  </Typography>
                 </Box>
               </Box>
             </Fade>
@@ -2634,59 +2566,82 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         <Box sx={{ maxWidth: 480, width: '100%' }}>
           <Zoom in timeout={600}>
             <SummaryCard>
-              {/* Header */}
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3 }}>
-                <IconButton
-                  onClick={() => setCurrentStepWithLog('summary')}
-                  sx={{ 
-                    mr: 2,
-                    mt: 0.5,
-                    color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' }
-                  }}
-                >
-                  <ArrowBackIcon />
-                </IconButton>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ 
-                    fontWeight: 600, 
-                    color: 'text.primary',
-                    mb: 0.5
-                  }}>
-                    {selectedParticipant}'s Receipt
-                  </Typography>
-                  <Typography variant="body2" sx={{ 
-                    color: 'text.secondary',
-                    mb: detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' ? 1 : 0
-                  }}>
-                    Detailed breakdown of items and costs
-                  </Typography>
-                  
-                  {/* Translation Toggle for Individual Receipt */}
-                  {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Switch
-                        size="small"
-                        checked={showOriginalLanguage}
-                        onChange={(e) => setShowOriginalLanguage(e.target.checked)}
-                        sx={{
-                          '& .MuiSwitch-switchBase.Mui-checked': {
-                            color: 'primary.main',
-                          },
-                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                            backgroundColor: 'primary.main',
-                          },
-                        }}
-                      />
-                      <Typography variant="caption" sx={{ 
-                        color: 'text.secondary',
-                        fontSize: '0.75rem',
-                      }}>
-                        {showOriginalLanguage ? 'Show in English' : `Show in ${detectedLanguage}`}
-                      </Typography>
-                    </Box>
-                  )}
+              {/* Receipt Header */}
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                  <IconButton
+                    onClick={() => setCurrentStepWithLog('summary')}
+                    sx={{ 
+                      mr: 2,
+                      mt: 0.5,
+                      color: 'text.secondary',
+                      '&:hover': { color: 'primary.main' }
+                    }}
+                  >
+                    <ArrowBackIcon />
+                  </IconButton>
+                  <Box sx={{ flex: 1, textAlign: 'center' }}>
+                    <Typography variant="h5" sx={{ 
+                      fontWeight: 700, 
+                      color: 'text.primary',
+                      fontFamily: 'monospace',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      mb: 0.5
+                    }}>
+                      {restaurantName || 'RECEIPT'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ 
+                      color: 'text.secondary',
+                      fontFamily: 'monospace',
+                      mb: 1
+                    }}>
+                      INDIVIDUAL RECEIPT
+                    </Typography>
+                    <Typography variant="body1" sx={{ 
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontFamily: 'monospace',
+                      textTransform: 'uppercase',
+                      mb: 1
+                    }}>
+                      {selectedParticipant}
+                    </Typography>
+                    <Typography variant="body2" sx={{ 
+                      color: 'text.secondary',
+                      fontFamily: 'monospace',
+                      mb: detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' ? 1 : 0
+                    }}>
+                      {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                    </Typography>
+                  </Box>
                 </Box>
+                <Box sx={{ borderBottom: '1px dashed', borderColor: 'divider', mb: 2 }} />
+                  
+                {/* Translation Toggle for Individual Receipt */}
+                {detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+                    <Switch
+                      size="small"
+                      checked={showOriginalLanguage}
+                      onChange={(e) => setShowOriginalLanguage(e.target.checked)}
+                      sx={{
+                        '& .MuiSwitch-switchBase.Mui-checked': {
+                          color: 'primary.main',
+                        },
+                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                          backgroundColor: 'primary.main',
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ 
+                      color: 'text.secondary',
+                      fontSize: '0.75rem',
+                    }}>
+                      {showOriginalLanguage ? 'Show in English' : `Show in ${detectedLanguage}`}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {/* Items List */}

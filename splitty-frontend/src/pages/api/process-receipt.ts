@@ -29,6 +29,7 @@ interface ReceiptItem {
 }
 
 interface ProcessReceiptResponse {
+  restaurantName?: string; // Name of the restaurant/business
   items: ReceiptItem[];
   total: number;
   currency: string;
@@ -247,7 +248,9 @@ function deduplicateAndMergeItems(items: ReceiptItem[]): ReceiptItem[] {
 async function processReceiptWithGPT(imageBase64?: string, receiptText?: string): Promise<ProcessReceiptResponse> {
   const prompt = `Please analyze this receipt ${imageBase64 ? 'image' : 'text'} and extract the following information:
 
-1. Extract each receipt item with:
+1. Extract the restaurant/business name from the receipt header
+
+2. Extract each receipt item with:
    - Original name (exactly as written on receipt)
    - English name (translate if needed, or same as original if already in English)
    - quantity (BE VERY CAREFUL with quantity detection)
@@ -263,21 +266,22 @@ QUANTITY DETECTION RULES:
 - For multi-packs (like "24-pack water"), the quantity is still 1 (you bought 1 pack)
 - Quantities should typically be small numbers (1-10), rarely above 20
 
-2. Extract tax, tips, service charges, and discounts as separate line items:
+3. Extract tax, tips, service charges, and discounts as separate line items:
    - Tax (sales tax, VAT, HST, GST, etc.)
    - Tips/gratuity (automatic gratuity, service charge, suggested tip)
    - Service charges (service fee, delivery fee, convenience fee, booking fee, processing fee, handling fee, corkage fee, cover charge)
    - Discounts (negative amounts, promotions, coupons)
    - Mark these as special items
 
-3. Calculate subtotal (before tax and tips) and total (final amount)
+4. Calculate subtotal (before tax and tips) and total (final amount)
 
-4. Detect the original currency of the receipt (USD, EUR, GBP, etc.)
+5. Detect the original currency of the receipt (USD, EUR, GBP, etc.)
 
-5. Detect the original language of the receipt
+6. Detect the original language of the receipt
 
 Return the information in this exact JSON format:
 {
+  "restaurantName": "Restaurant/Business Name",
   "items": [
     {
       "name": "item name in English",
@@ -588,6 +592,7 @@ export default async function handler(
 
     return res.status(200).json({
       success: true,
+      restaurantName: result.restaurantName,
       items: transformedItems,
       total: result.total,
       currency: result.currency,
