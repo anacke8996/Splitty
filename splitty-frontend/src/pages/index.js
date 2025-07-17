@@ -1,77 +1,31 @@
-import { useState } from 'react';
-import ReceiptProcessor from '../components/ReceiptProcessor';
-import ProtectedLayout from '../components/ProtectedLayout';
-import { Box, Button, Typography, useTheme } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { useRouter } from 'next/router';
+import { 
+  Box, 
+  Typography, 
+  Button,
+  useTheme
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 const GradientTitle = styled('span')(({ theme }) => ({
   fontWeight: 800,
-  fontSize: '2.5rem',
+  fontSize: '4rem',
   display: 'inline-block',
   background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   color: 'transparent',
-  letterSpacing: '-0.01em',
+  letterSpacing: '-0.02em',
   fontFamily: 'Inter, system-ui, sans-serif',
-}));
-
-const ReceiptShadowWrapper = styled('div')(({ theme }) => ({
-    boxShadow: '0 8px 32px 0 rgba(0,0,0,0.2), 0 1.5px 8px 0 rgba(0,0,0,0.1)',
-    borderRadius: 20,
-    maxWidth: 420,
-    width: '100%',
-    background: 'transparent',
-    [theme.breakpoints.down('sm')]: {
-      maxWidth: 460,
-      borderRadius: 16,
-    },
-  }));
-
-const ReceiptContainer = styled('div')(({ theme }) => ({
-  background: theme.palette.background.paper,
-  border: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 4px 18px 0 rgba(0,0,0,0.15)',
-  borderRadius: 20,
-  padding: `${theme.spacing(4)} ${theme.spacing(5)} ${theme.spacing(4)}`,
-  position: 'relative',
-  width: '100%',
-  maxWidth: 420,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  overflow: 'visible',
+  [theme.breakpoints.down('md')]: {
+    fontSize: '3.5rem',
+  },
   [theme.breakpoints.down('sm')]: {
-    padding: `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)}`,
-    maxWidth: 340,
+    fontSize: '3rem',
   },
 }));
 
-const UploadButton = styled(Button)(({ theme }) => ({
-  padding: '14px 32px',
-  fontSize: '1.1rem',
-  fontWeight: 600,
-  borderRadius: 12,
-  textTransform: 'none',
-  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-  border: 'none',
-  boxShadow: '0 4px 16px 0 rgba(59, 130, 246, 0.3)',
-  transition: 'all 0.2s ease-in-out',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  letterSpacing: '-0.01em',
-  '&:hover': {
-    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
-    transform: 'translateY(-1px)',
-    boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.4)',
-  },
-  '&:active': {
-    transform: 'translateY(0px)',
-  },
-}));
-
-const ReceiptIconCircum = ({ size = 38, ...props }) => {
-  const theme = useTheme();
+const ReceiptIconCircum = ({ size = 46, ...props }) => {
   const style = {
     width: size,
     height: size,
@@ -104,110 +58,96 @@ const ReceiptIconCircum = ({ size = 38, ...props }) => {
 );
 };
 
-export default function Home() {
-    const [imageData, setImageData] = useState(null);
-    const [showProcessor, setShowProcessor] = useState(false);
-    const theme = useTheme();
+const GradientButton = styled(Button)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+  color: '#FFFFFF',
+  padding: '16px 32px',
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  borderRadius: 12,
+  textTransform: 'none',
+  boxShadow: `0 8px 24px ${theme.palette.primary.main}40`,
+  '&:hover': {
+    background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
+    transform: 'translateY(-2px)',
+    boxShadow: `0 12px 32px ${theme.palette.primary.main}60`,
+  },
+}));
 
-    const handleImageUpload = (event) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result;
-                // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
-                const base64Data = base64String.split(',')[1];
-                setImageData(base64Data);
-                setShowProcessor(true);
-            };
-            reader.readAsDataURL(file);
-        }
+const BackgroundGradient = styled(Box)(() => ({
+  position: 'fixed',
+  inset: 0,
+  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, transparent 50%, rgba(139, 92, 246, 0.1) 100%)',
+  pointerEvents: 'none',
+  zIndex: -1,
+}));
+
+export default function Welcome() {
+    const router = useRouter();
+
+    const handleGetStarted = () => {
+        router.push('/onboarding/group-expenses');
     };
-
-    const handleProcessingComplete = (results) => {
-        console.log('Processing complete:', results);
-        setImageData(null);
-        setShowProcessor(false);
-    };
-
-    if (showProcessor && imageData) {
-        return (
-            <ProtectedLayout>
-                <ReceiptProcessor
-                    imageData={imageData}
-                    onComplete={handleProcessingComplete}
-                />
-            </ProtectedLayout>
-        );
-    }
 
     return (
-        <ProtectedLayout>
-            <Box
-                sx={{
-                    minHeight: 'calc(100vh - 64px)', // Subtract AppBar height
-                    width: '100vw',
-                    background: 'background.default',
-                    fontFamily: 'Inter, Lato, system-ui, sans-serif',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                }}
-            >
-                <Box sx={{ width: '100%', maxWidth: 420, mx: 'auto', px: { xs: 2, sm: 0 }, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', py: 8 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, mt: 2 }}>
-                      <GradientTitle>Splitty</GradientTitle>
-                      <ReceiptIconCircum style={{ verticalAlign: 'middle', marginLeft: 8 }} />
-                    </Box>
-                    <Typography
-                        variant="subtitle1"
-                        sx={{
-                            color: 'text.secondary',
-                            fontWeight: 300,
-                            fontSize: '0.97rem',
-                            mt: 0,
-                            mb: 5,
-                            letterSpacing: 0,
-                        }}
-                    >
-                        Split your bills with ease
-                    </Typography>
-                    <Box sx={{ mt: 4, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <input
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            id="receipt-upload"
-                            type="file"
-                            onChange={handleImageUpload}
-                        />
-                        <label htmlFor="receipt-upload">
-                            <UploadButton
-                                variant="contained"
-                                component="span"
-                                startIcon={<CloudUploadIcon sx={{ fontSize: 28 }} />}
-                                size="large"
-                            >
-                                Upload Receipt
-                            </UploadButton>
-                        </label>
-                        <Typography
-                            align="center"
-                            sx={{
-                                color: 'text.secondary',
-                                fontSize: '0.91rem',
-                                fontWeight: 300,
-                                mt: 5,
-                                mb: 0,
-                                letterSpacing: 0,
-                                fontFamily: 'Inter, system-ui, sans-serif',
-                            }}
-                        >
-                            Supported formats: JPG, PNG, JPEG
-                        </Typography>
-                    </Box>
+        <Box
+            sx={{
+                minHeight: '100vh',
+                background: 'background.default',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+                px: 3,
+            }}
+        >
+            <BackgroundGradient />
+
+            {/* Main Content */}
+            <Box sx={{ textAlign: 'center', maxWidth: 600 }}>
+                {/* Logo and Title */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 3 }}>
+                    <GradientTitle>Splitty</GradientTitle>
+                    <ReceiptIconCircum />
                 </Box>
+
+                {/* Welcome Message */}
+                <Typography
+                    variant="h4"
+                    sx={{
+                        color: 'text.primary',
+                        fontWeight: 600,
+                        mb: 2,
+                        fontSize: { xs: '1.5rem', sm: '2rem' },
+                    }}
+                >
+                    Welcome to Splitty
+                </Typography>
+
+                <Typography
+                    variant="h6"
+                    sx={{
+                        color: 'text.secondary',
+                        fontWeight: 300,
+                        mb: 6,
+                        fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                        lineHeight: 1.6,
+                    }}
+                >
+                    The smart way to split bills and manage group expenses.
+                    Simple, fast, and intelligent.
+                </Typography>
+
+                {/* Get Started Button */}
+                <GradientButton
+                    onClick={handleGetStarted}
+                    size="large"
+                >
+                    Get Started
+                </GradientButton>
             </Box>
-        </ProtectedLayout>
+        </Box>
     );
 } 
