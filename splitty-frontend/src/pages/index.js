@@ -162,7 +162,9 @@ const FeatureShowcase = styled(Box)({
   marginBottom: 16,
 });
 
-const FeatureItem = styled(Box)(({ isVisible }) => ({
+const FeatureItem = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isVisible'
+})(({ isVisible }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: 8,

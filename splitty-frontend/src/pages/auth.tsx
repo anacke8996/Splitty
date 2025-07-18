@@ -161,7 +161,9 @@ const TabContainer = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }))
 
-const TabButton = styled(Button)<{ active?: boolean }>(({ theme, active }) => ({
+const TabButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== 'active',
+})<{ active?: boolean }>(({ theme, active }) => ({
   flex: 1,
   padding: '12px 16px',
   borderRadius: '8px',

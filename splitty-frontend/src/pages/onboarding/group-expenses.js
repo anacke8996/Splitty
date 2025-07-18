@@ -142,7 +142,9 @@ const FeatureShowcase = styled(Box)({
   marginBottom: 16,
 });
 
-const FeatureItem = styled(Box)(({ isVisible }) => ({
+const FeatureItem = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isVisible'
+})(({ isVisible }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -202,12 +204,15 @@ const OutlineButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const ProgressDot = styled(Box)(({ isActive }) => ({
+const ProgressDot = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isActive'
+})(({ isActive }) => ({
   width: isActive ? 24 : 8,
   height: 8,
   borderRadius: 4,
+  margin: '0 4px',
   backgroundColor: isActive ? '#3b82f6' : '#475569',
-  transition: 'all 0.3s ease',
+  transition: 'all 0.3s',
 }));
 
 const FloatingElement = styled(Box)(({ delay = 0, size = 8, color = '#60a5fa' }) => ({
