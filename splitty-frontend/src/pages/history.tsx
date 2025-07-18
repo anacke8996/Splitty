@@ -216,17 +216,7 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
     }
   }, [user, session])
 
-  // Debug effect to track receipts state changes
-  useEffect(() => {
-    console.log('History page: receipts state changed to:', receipts?.length || 0, 'receipts');
-    if (receipts && receipts.length > 0) {
-      console.log('History page: First 3 receipts in state:', receipts.slice(0, 3).map(r => ({ 
-        id: r.id, 
-        restaurant: r.restaurant_name, 
-        created_at: r.created_at 
-      })));
-    }
-  }, [receipts])
+
 
   const cleanupOldReceipts = async () => {
     try {

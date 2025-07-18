@@ -484,12 +484,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [targetCurrency, setTargetCurrency] = useState('USD');
   const [currentStep, setCurrentStep] = useState<'loading' | 'review' | 'currency' | 'participants' | 'assignments' | 'summary' | 'individual'>('loading');
   
-  // Debug step changes
-  const setCurrentStepWithLog = (newStep: typeof currentStep) => {
-    console.log(`📋 Step change: ${currentStep} → ${newStep}`);
-    console.trace('Step change stack trace:');
-    setCurrentStep(newStep);
-  };
+  // Use setCurrentStep directly - debug logging removed
   const [activeStep, setActiveStep] = useState(0);
   const [inputError, setInputError] = useState(false);
   const [userTotals, setUserTotals] = useState<Record<string, number>>({});
@@ -729,13 +724,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     );
   };
 
-  // Debug component lifecycle
-  React.useEffect(() => {
-    console.log('🚀 ReceiptProcessor mounted');
-    return () => {
-      console.log('💥 ReceiptProcessor unmounting');
-    };
-  }, []);
+
 
   React.useEffect(() => {
     console.log('🔄 processReceipt useEffect triggered, imageData length:', imageData?.length);
@@ -831,45 +820,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     return item;
   };
 
-  // Initialize special items to be assigned to all participants when participants change
-  // TEMPORARILY DISABLED - This useEffect was causing resets during checkbox interactions
-  // React.useEffect(() => {
-  //   try {
-  //     console.log('🔄 Validation useEffect triggered, participants:', participants.length, 'taxIncluded:', taxIncluded);
-  //     if (participants.length > 0) {
-  //       setItems(prevItems => {
-  //         const updatedItems = prevItems.map(item => {
-  //           const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
-  //           if (validatedItem && validatedItem.isSpecialItem) {
-  //             // For separate tax (American style), auto-assign tax to all participants
-  //             if (validatedItem.specialType === 'tax' && !taxIncluded) {
-  //               console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
-  //               return {
-  //                 ...validatedItem,
-  //                 shared_by: [...participants]
-  //               };
-  //             }
-  //             // For other special items (tips, service charges), also auto-assign
-  //             else if (validatedItem.specialType !== 'tax') {
-  //               return {
-  //                 ...validatedItem,
-  //                 shared_by: [...participants]
-  //               };
-  //             }
-  //             // For included tax, don't auto-assign (it's filtered out anyway)
-  //             else {
-  //               return validatedItem;
-  //             }
-  //           }
-  //           return validatedItem;
-  //         }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
-  //         return updatedItems;
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Error in validation useEffect:', error);
-  //   }
-  // }, [participants, taxIncluded, taxInclusionReason]);
+
 
     const processReceipt = async () => {
     try {
@@ -1007,10 +958,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         
         if (warnings.length > 0) {
           console.log(`⚠️ Found ${warnings.length} validation issues, showing review step`);
-          setCurrentStepWithLog('review');
+          setCurrentStep('review');
         } else {
           console.log('✅ No validation issues found, skipping review step');
-          setCurrentStepWithLog('currency');
+          setCurrentStep('currency');
         }
       } else {
         setError(data.error || 'Failed to process receipt');
@@ -1026,7 +977,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     setTargetCurrency(newCurrency);
     
     if (newCurrency === sourceCurrency) {
-      setCurrentStepWithLog('participants');
+      setCurrentStep('participants');
       return;
     }
     
@@ -1056,7 +1007,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           };
         });
         setItems(updatedItems);
-        setCurrentStepWithLog('participants');
+        setCurrentStep('participants');
       } else {
         setError(data.error || 'Failed to convert currency');
       }
@@ -1349,7 +1300,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     if (hasUnassignedItems()) {
       const unassignedItems = getUnassignedItems();
       const itemNames = unassignedItems.map(item => item.item).join(', ');
-      alert(`Please assign all items before calculating the bill. Unassigned items: ${itemNames}`);
+      setError(`Please assign all items before calculating the bill. Unassigned items: ${itemNames}`);
       return;
     }
 
@@ -1387,7 +1338,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     });
 
     setUserTotals(totals);
-    setCurrentStepWithLog('summary');
+    setCurrentStep('summary');
   };
 
   const getStepIndex = () => {
@@ -1844,7 +1795,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 variant="outlined"
-                onClick={() => setCurrentStepWithLog('loading')}
+                onClick={() => setCurrentStep('loading')}
                 startIcon={<ArrowBackIcon />}
                 fullWidth
                 sx={{ py: 2 }}
@@ -1853,7 +1804,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               </Button>
               <Button
                 variant="contained"
-                onClick={() => setCurrentStepWithLog('currency')}
+                onClick={() => setCurrentStep('currency')}
                 endIcon={<ArrowForwardIosIcon />}
                 fullWidth
                 sx={{ py: 2 }}
@@ -2040,7 +1991,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="outlined"
-                    onClick={() => setCurrentStepWithLog('review')}
+                    onClick={() => setCurrentStep('review')}
                     fullWidth
                     sx={{ 
                       py: 2.5, 
@@ -2305,7 +2256,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="outlined"
-                    onClick={() => setCurrentStepWithLog('currency')}
+                    onClick={() => setCurrentStep('currency')}
                     startIcon={<ArrowBackIcon />}
                     fullWidth
                     sx={{ 
@@ -2327,7 +2278,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                     variant="contained"
                     onClick={() => {
                       setCurrentParticipantIndex(0);
-                      setCurrentStepWithLog('assignments');
+                      setCurrentStep('assignments');
                     }}
                     disabled={participants.length < 1}
                     endIcon={<ArrowForwardIosIcon />}
@@ -2914,7 +2865,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
           <Button
             variant="outlined"
-            onClick={() => setCurrentStepWithLog('participants')}
+            onClick={() => setCurrentStep('participants')}
             startIcon={<ArrowBackIcon />}
             fullWidth
             sx={{ 
@@ -3137,7 +3088,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         fontSize: '0.85rem',
                       }}
                     >
-                      {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                      Split Receipt Summary
                     </Typography>
                   </Fade>
                 </Box>
@@ -3149,7 +3100,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       <Box
                         onClick={() => {
                           setSelectedParticipant(participant);
-                          setCurrentStepWithLog('individual');
+                          setCurrentStep('individual');
                         }}
                         sx={{
                           display: 'flex',
@@ -3261,7 +3212,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                     variant="outlined"
                     onClick={() => {
                       setCurrentParticipantIndex(0);
-                      setCurrentStepWithLog('assignments');
+                      setCurrentStep('assignments');
                     }}
                     startIcon={<ArrowBackIcon />}
                     fullWidth
@@ -3332,7 +3283,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                           items
                         });
                       }
-                      setCurrentStepWithLog('loading');
+                      setCurrentStep('loading');
                     }}
                     disabled={savingReceipt}
                     fullWidth
@@ -3428,7 +3379,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               <Box sx={{ mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                   <IconButton
-                    onClick={() => setCurrentStepWithLog('summary')}
+                    onClick={() => setCurrentStep('summary')}
                     sx={{ 
                       mr: 2,
                       mt: 0.5,
@@ -3470,7 +3421,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       fontFamily: 'monospace',
                       mb: detectedLanguage && detectedLanguage.toLowerCase() !== 'english' && detectedLanguage.toLowerCase() !== 'en' ? 1 : 0
                     }}>
-                      {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                      Individual Receipt
                     </Typography>
                   </Box>
                 </Box>
@@ -3659,7 +3610,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
               {/* Back Button */}
               <Button
                 variant="outlined"
-                onClick={() => setCurrentStepWithLog('summary')}
+                onClick={() => setCurrentStep('summary')}
                 startIcon={<ArrowBackIcon />}
                 fullWidth
                 sx={{ 
