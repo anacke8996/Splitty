@@ -19,24 +19,79 @@ export default function Document() {
             margin: 0;
             padding: 0;
             background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%) !important;
+            background-attachment: fixed !important;
+            background-repeat: no-repeat !important;
+            background-size: cover !important;
             color: #F8FAFC !important;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             overflow-x: hidden;
             width: 100%;
             min-height: max(100vh, 100dvh);
-            height: max(100vh, 100dvh);
+            height: auto;
+            position: relative;
+          }
+          
+          html::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
+            z-index: -2;
+            pointer-events: none;
+          }
+          
+          body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
+            z-index: -1;
+            pointer-events: none;
           }
           
           #__next {
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%) !important;
+            background: transparent !important;
             color: #F8FAFC !important;
             min-height: max(100vh, 100dvh);
-            height: max(100vh, 100dvh);
             width: 100%;
+            position: relative;
+            z-index: 1;
           }
           
           * {
             box-sizing: border-box;
+          }
+          
+          /* Prevent overscroll and rubber band effects */
+          html {
+            overscroll-behavior: none;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          /* Prevent text selection on touch devices during drag */
+          * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          }
+          
+          /* Allow text selection in input fields and editable content */
+          input, textarea, [contenteditable="true"] {
+            -webkit-user-select: text;
+            -khtml-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
           }
           
           /* Dark scrollbar for webkit browsers */
@@ -56,15 +111,22 @@ export default function Document() {
         `}</style>
       </Head>
       <body style={{ 
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)', 
+        background: 'transparent', // Let the fixed background show through
         color: '#F8FAFC',
         margin: 0,
         padding: 0,
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        minHeight: 'max(100vh, 100dvh)',
-        height: 'max(100vh, 100dvh)',
+        minHeight: '100vh',
+        minHeight: '100dvh', // Modern viewport height for mobile browsers
         width: '100%',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        position: 'relative',
+        // Prevent bounce/rubber band scrolling on iOS and Android
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'none',
+        // Disable pull-to-refresh on mobile
+        overscrollBehaviorY: 'none',
+        touchAction: 'pan-y',
       }}>
         <Main />
         <NextScript />
