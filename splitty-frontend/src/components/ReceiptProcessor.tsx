@@ -2551,7 +2551,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 </ReceiptHeader>
 
                 <Box 
-                  ref={(el) => {
+                  ref={(el: HTMLDivElement | null) => {
                     if (scrollContainerRefs.current) {
                       scrollContainerRefs.current[participantIndex] = el;
                     }
