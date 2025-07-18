@@ -116,8 +116,7 @@ export default function Document() {
         margin: 0,
         padding: 0,
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        minHeight: '100vh',
-        minHeight: '100dvh', // Modern viewport height for mobile browsers
+        minHeight: 'max(100vh, 100dvh)', // Fallback for older browsers, modern viewport for mobile
         width: '100%',
         overflowX: 'hidden',
         position: 'relative',
