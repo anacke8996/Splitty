@@ -24,8 +24,9 @@ export default function MyApp(props: MyAppProps) {
         <AuthProvider>
           <CssBaseline />
           <Box sx={{ 
-            backgroundColor: 'background.default',
-            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
+            minHeight: 'max(100vh, 100dvh)',
+            height: 'max(100vh, 100dvh)',
             color: 'text.primary',
             width: '100%'
           }}>

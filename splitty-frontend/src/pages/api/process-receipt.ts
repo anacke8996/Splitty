@@ -625,61 +625,8 @@ export default async function handler(
       taxInclusionReason: result.taxInclusionReason
     };
 
-    // Try to save to database if user is authenticated (optional - don't fail if no auth)
-    try {
-      const authResult = await getUserFromAuth(req);
-      if (authResult) {
-        const { user, token } = authResult;
-        console.log('Saving receipt to database for user:', user.id);
-        
-        // Create authenticated Supabase client
-        const { createClient } = await import('@supabase/supabase-js');
-        const authenticatedSupabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          }
-        );
-        
-        // Convert items to database format
-        const dbItems = transformedItems.map(item => ({
-          name: item.item,
-          originalName: item.originalItem || item.item,
-          price: item.price,
-          assignedTo: [], // Will be populated when bill is split
-          type: item.isSpecialItem ? 'discrete' : 'regular' as 'regular' | 'shared' | 'discrete'
-        }));
-
-        const { error: dbError } = await authenticatedSupabase
-          .from('receipts')
-          .insert({
-            user_id: user.id,
-            restaurant_name: result.restaurantName || 'Unknown Restaurant',
-            total_amount: result.total,
-            currency: result.currency,
-            receipt_items: dbItems,
-            participants: [], // Will be updated when bill is split
-            split_results: [] // Will be updated when bill is split
-          });
-
-        if (dbError) {
-          console.error('Database save error:', dbError);
-          // Don't fail the request - just log the error
-        } else {
-          console.log('Receipt saved to database successfully');
-        }
-      } else {
-        console.log('No authenticated user - skipping database save');
-      }
-    } catch (dbError) {
-      console.error('Database save attempt failed:', dbError);
-      // Don't fail the request - database saving is optional
-    }
+    // Note: Receipts are now only saved when the user completes the entire flow
+    // This prevents saving incomplete receipts to the database
 
     return res.status(200).json(responseData);
 

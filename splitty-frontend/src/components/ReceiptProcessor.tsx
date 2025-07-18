@@ -231,7 +231,7 @@ const IndividualReceiptCard = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
   margin: theme.spacing(0.5),
   maxWidth: 'min(750px, 98vw)',
-  minHeight: '75vh',
+  maxHeight: 'calc(100vh - 120px)', // Limit height to allow space for navigation
   width: '100%',
   boxSizing: 'border-box',
   position: 'relative',
@@ -252,7 +252,7 @@ const IndividualReceiptCard = styled(Box)(({ theme }) => ({
     padding: theme.spacing(4),
     borderRadius: '24px',
     maxWidth: 'min(900px, 95vw)',
-    minHeight: '80vh',
+    maxHeight: 'calc(100vh - 100px)',
   },
   [theme.breakpoints.up('md')]: {
     maxWidth: 'min(1000px, 90vw)',
@@ -317,7 +317,8 @@ const ParticipantInput = styled(TextField)(({ theme }) => ({
 }));
 
 const LoadingContainer = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
+  minHeight: 'max(100vh, 100dvh)',
+  height: 'max(100vh, 100dvh)',
   background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
   position: 'relative',
   overflow: 'hidden',
@@ -499,6 +500,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [detectedLanguage, setDetectedLanguage] = useState<string>('');
   const [showOriginalLanguage, setShowOriginalLanguage] = useState<boolean>(false);
   const [restaurantName, setRestaurantName] = useState<string>('');
+  const [savingReceipt, setSavingReceipt] = useState<boolean>(false);
   
 
   
@@ -2271,7 +2273,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const currentParticipant = participants[currentParticipantIndex];
     
     return (
-      <LoadingContainer>
+      <Box sx={{ 
+        minHeight: 'max(100vh, 100dvh)',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
+        position: 'relative',
+        overflow: 'auto', // Allow scrolling
+        padding: 2,
+      }}>
         {/* Animated Background Elements */}
         <BackgroundElement
           sx={{
@@ -2310,7 +2318,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           maxWidth: { xs: 780, sm: 920, md: 1020 }, 
           margin: '0 auto', 
           padding: 1, 
-          minHeight: '100vh',
+          minHeight: 'calc(100vh - 32px)', // Account for padding
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -2846,7 +2854,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           </>
         )}
         </Box>
-      </LoadingContainer>
+      </Box>
     );
   }
 
@@ -3109,7 +3117,47 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   </Button>
                   <Button
                     variant="contained"
-                    onClick={() => {
+                    onClick={async () => {
+                      setSavingReceipt(true);
+                      try {
+                        // Save the completed receipt to database
+                        const response = await fetch('/api/save-receipt', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(session?.access_token && {
+                              'Authorization': `Bearer ${session.access_token}`
+                            }),
+                          },
+                          body: JSON.stringify({
+                            restaurantName: restaurantName || 'Unknown Restaurant',
+                            totalAmount: originalTotal,
+                            currency: targetCurrency,
+                            items,
+                            participants,
+                            userTotals,
+                            sourceCurrency,
+                            targetCurrency,
+                            detectedLanguage
+                          }),
+                        });
+
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                          console.log('✅ Receipt saved successfully:', result.receiptId);
+                        } else {
+                          console.error('❌ Failed to save receipt:', result.error);
+                          // Don't block the user - they can still complete the flow
+                        }
+                      } catch (error) {
+                        console.error('❌ Error saving receipt:', error);
+                        // Don't block the user - they can still complete the flow
+                      } finally {
+                        setSavingReceipt(false);
+                      }
+
+                      // Complete the flow regardless of save success
                       if (onComplete) {
                         onComplete({
                           participants,
@@ -3120,6 +3168,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                       }
                       setCurrentStepWithLog('loading');
                     }}
+                    disabled={savingReceipt}
                     fullWidth
                     sx={{ 
                       py: 2,
@@ -3135,9 +3184,21 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         boxShadow: '0 12px 30px rgba(59, 130, 246, 0.4)',
                         transform: 'translateY(-2px)',
                       },
+                      '&:disabled': {
+                        background: 'rgba(71, 85, 105, 0.5)',
+                        color: '#64748b',
+                        transform: 'none',
+                      },
                     }}
                   >
-                    Complete
+                    {savingReceipt ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={16} color="inherit" />
+                        Saving...
+                      </Box>
+                    ) : (
+                      'Complete'
+                    )}
                   </Button>
                 </Box>
               </Box>

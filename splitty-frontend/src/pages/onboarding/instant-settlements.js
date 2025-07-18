@@ -48,7 +48,8 @@ const bounce = keyframes`
 
 // Styled Components
 const AnimatedContainer = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
+  minHeight: 'max(100vh, 100dvh)',
+  height: 'max(100vh, 100dvh)',
   background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
   display: 'flex',
   flexDirection: 'column',

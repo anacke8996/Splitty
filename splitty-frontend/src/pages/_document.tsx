@@ -4,6 +4,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta name="emotion-insertion-point" content="" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -18,18 +19,20 @@ export default function Document() {
           html, body {
             margin: 0;
             padding: 0;
-            background-color: #0F172A !important;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%) !important;
             color: #F8FAFC !important;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             overflow-x: hidden;
             width: 100%;
-            min-height: 100vh;
+            min-height: max(100vh, 100dvh);
+            height: max(100vh, 100dvh);
           }
           
           #__next {
-            background-color: #0F172A !important;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%) !important;
             color: #F8FAFC !important;
-            min-height: 100vh;
+            min-height: max(100vh, 100dvh);
+            height: max(100vh, 100dvh);
             width: 100%;
           }
           
@@ -54,12 +57,13 @@ export default function Document() {
         `}</style>
       </Head>
       <body style={{ 
-        backgroundColor: '#0F172A', 
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)', 
         color: '#F8FAFC',
         margin: 0,
         padding: 0,
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        minHeight: '100vh',
+        minHeight: 'max(100vh, 100dvh)',
+        height: 'max(100vh, 100dvh)',
         width: '100%',
         overflowX: 'hidden'
       }}>
