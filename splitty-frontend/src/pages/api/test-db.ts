@@ -15,7 +15,8 @@ export default async function handler(
       user_id: '00000000-0000-0000-0000-000000000000', // Test UUID
       restaurant_name: 'Test Restaurant',
       total_amount: 10.00,
-      currency: 'USD'
+      currency: 'USD',
+      starred: false // Test if starred column exists
     };
 
     console.log('Testing insert with minimal data:', testInsert);

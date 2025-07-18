@@ -19,6 +19,7 @@ export interface Receipt {
   detected_language?: string
   completed_at?: string
   created_at: string
+  starred?: boolean
 }
 
 export interface ReceiptItem {

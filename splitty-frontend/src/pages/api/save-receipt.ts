@@ -154,6 +154,37 @@ export default async function handler(
 
     console.log('Receipt saved to database successfully:', data.id, 'at', data.created_at);
 
+    // Trigger cleanup asynchronously (don't wait for it)
+    setTimeout(async () => {
+      try {
+        console.log('Triggering cleanup after receipt save...');
+        
+        // Quick check if cleanup is needed
+        const { data: countData } = await authenticatedSupabase
+          .from('receipts')
+          .select('id', { count: 'exact' })
+          .eq('user_id', user.id);
+        
+        if (countData && countData.length > 15) {
+          // Call cleanup endpoint internally
+          const cleanup = await import('./cleanup-receipts');
+          await cleanup.default(
+            { 
+              method: 'POST', 
+              headers: { authorization: `Bearer ${token}` },
+              body: {}
+            } as any,
+            {
+              status: () => ({ json: () => {} }),
+              json: () => {}
+            } as any
+          );
+        }
+      } catch (error) {
+        console.error('Error during post-save cleanup:', error);
+      }
+    }, 2000); // 2 second delay to not affect save response time
+
     return res.status(200).json({ 
       success: true, 
       receiptId: data.id,

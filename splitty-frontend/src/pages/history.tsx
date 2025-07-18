@@ -23,6 +23,10 @@ import {
   Receipt as ReceiptIcon,
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Sort as SortIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/router'
@@ -74,10 +78,13 @@ const slideIn = keyframes`
 // Styled components
 const AnimatedContainer = styled(Box)(({ theme }) => ({
   minHeight: '100vh',
+  height: 'auto',
   background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
+  backgroundAttachment: 'fixed',
   position: 'relative',
   padding: theme.spacing(2),
-  paddingBottom: theme.spacing(4),
+  paddingBottom: theme.spacing(6),
+  width: '100%',
 }))
 
 const BackgroundElement = styled(Box)(({ theme }) => ({
@@ -123,27 +130,20 @@ const HeaderCard = styled(Box)(({ theme }) => ({
 }))
 
 const ReceiptCard = styled(Card)(({ theme }) => ({
-  background: 'rgba(30, 41, 59, 0.95)',
+  background: 'rgba(30, 41, 59, 0.8)',
   backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(59, 130, 246, 0.2)',
+  border: '1px solid rgba(71, 85, 105, 0.3)',
   borderRadius: '20px',
-  boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.5)',
+  boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.4)',
   transition: 'all 0.3s ease',
   cursor: 'pointer',
   position: 'relative',
   overflow: 'hidden',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    inset: 0,
-    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05))',
-    borderRadius: '20px',
-    pointerEvents: 'none',
-  },
   '&:hover': {
     transform: 'translateY(-4px)',
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
-    borderColor: 'rgba(59, 130, 246, 0.4)',
+    borderColor: 'rgba(71, 85, 105, 0.5)',
+    background: 'rgba(30, 41, 59, 0.9)',
   },
 }))
 
@@ -167,7 +167,7 @@ const BackButton = styled(IconButton)(({ theme }) => ({
   '&:hover': {
     background: 'rgba(30, 41, 59, 0.9)',
     color: '#f8fafc',
-    borderColor: 'rgba(59, 130, 246, 0.5)',
+    borderColor: 'rgba(71, 85, 105, 0.5)',
     transform: 'translateY(-1px)',
   },
 }))
@@ -181,15 +181,17 @@ const EmptyStateContainer = styled(Box)(({ theme }) => ({
 }))
 
 const EmptyStateCard = styled(Box)(({ theme }) => ({
-  background: 'rgba(30, 41, 59, 0.95)',
+  background: 'rgba(30, 41, 59, 0.8)',
   backdropFilter: 'blur(20px)',
   borderRadius: '24px',
-  border: '1px solid rgba(59, 130, 246, 0.2)',
+  border: '1px solid rgba(71, 85, 105, 0.3)',
   padding: theme.spacing(6, 4),
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
   maxWidth: '400px',
   margin: '0 auto',
 }))
+
+
 
 interface ReceiptHistoryProps {}
 
@@ -200,6 +202,10 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showItems, setShowItems] = useState(false)
+  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null)
+  const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent')
+  const [showStarredOnly, setShowStarredOnly] = useState(false)
 
   const { user, session } = useAuth()
   const router = useRouter()
@@ -221,6 +227,27 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
       })));
     }
   }, [receipts])
+
+  const cleanupOldReceipts = async () => {
+    try {
+      console.log('Starting automatic receipt cleanup...');
+      const response = await fetch('/api/cleanup-receipts', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      })
+
+      const data = await response.json()
+      if (data.success && data.deletedCount > 0) {
+        console.log(`Cleanup completed: Deleted ${data.deletedCount} old receipts, preserved ${data.preservedStarred} starred receipts`);
+      } else {
+        console.log('Cleanup result:', data.message);
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  }
 
   const fetchReceipts = async () => {
     try {
@@ -255,6 +282,11 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
         setReceipts(data.receipts || [])
         setRefreshKey(prev => prev + 1) // Force re-render
         console.log('History page: setReceipts called with', data.receipts?.length || 0, 'receipts');
+
+        // Trigger cleanup after fetching receipts (only if we have more than 15)
+        if (data.receipts && data.receipts.length > 15) {
+          setTimeout(() => cleanupOldReceipts(), 1000); // Slight delay to not interfere with UI
+        }
       } else {
         console.error('History page: API error:', data.error);
         setError(data.error || 'Failed to fetch receipts')
@@ -269,12 +301,153 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
 
   const handleViewReceipt = (receipt: Receipt) => {
     setSelectedReceipt(receipt)
+    setShowItems(false) // Reset items view when opening new receipt
+    setSelectedParticipant(null) // Reset participant view
     setDialogOpen(true)
   }
 
   const handleCloseDialog = () => {
     setDialogOpen(false)
     setSelectedReceipt(null)
+    setShowItems(false) // Reset items view when closing
+    setSelectedParticipant(null) // Reset participant view when closing
+  }
+
+  const handleParticipantClick = (participant: string) => {
+    setSelectedParticipant(participant)
+  }
+
+  const handleBackToSummary = () => {
+    setSelectedParticipant(null)
+  }
+
+  const handleStarReceipt = async (receiptId: string, currentStarred: boolean, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent opening the receipt dialog
+    
+    try {
+      const response = await fetch('/api/star-receipt', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          receiptId,
+          starred: !currentStarred
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update the local receipts state
+        setReceipts(prevReceipts => 
+          prevReceipts.map(receipt => 
+            receipt.id === receiptId 
+              ? { ...receipt, starred: !currentStarred }
+              : receipt
+          )
+        )
+        console.log(`Receipt ${receiptId} ${!currentStarred ? 'starred' : 'unstarred'}`)
+      } else {
+        if (data.needsDbUpdate) {
+          alert(`Star feature needs database setup!\n\nPlease run this SQL command in your Supabase SQL Editor:\n\n${data.sqlCommand}`)
+        }
+        console.error('Failed to update star status:', data.error)
+      }
+    } catch (error) {
+      console.error('Error starring receipt:', error)
+    }
+  }
+
+  const handleDeleteReceipt = async (receiptId: string, restaurantName: string, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent opening the receipt dialog
+    
+    // Confirm deletion
+    const confirmed = window.confirm(`Are you sure you want to delete the receipt from "${restaurantName}"?\n\nThis action cannot be undone.`)
+    
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch('/api/delete-receipt', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ receiptId }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove the deleted receipt from local state
+        setReceipts(prevReceipts => 
+          prevReceipts.filter(receipt => receipt.id !== receiptId)
+        )
+        console.log(`Receipt ${receiptId} deleted successfully`)
+      } else {
+        console.error('Failed to delete receipt:', data.error)
+        alert('Failed to delete receipt. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error deleting receipt:', error)
+      alert('Failed to delete receipt. Please try again.')
+    }
+  }
+
+  // Get filtered and sorted receipts
+  const getFilteredAndSortedReceipts = () => {
+    let filteredReceipts = receipts
+
+    // Filter by starred if enabled
+    if (showStarredOnly) {
+      filteredReceipts = receipts.filter(receipt => receipt.starred)
+    }
+
+    // Sort by date
+    return filteredReceipts.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime()
+      const dateB = new Date(b.created_at).getTime()
+      
+      if (sortOrder === 'recent') {
+        return dateB - dateA // Most recent first
+      } else {
+        return dateA - dateB // Oldest first
+      }
+    })
+  }
+
+  // Get items assigned to a specific participant with their individual costs
+  const getParticipantItems = (participant: string, receipt: Receipt) => {
+    if (!receipt) return []
+    
+    return receipt.receipt_items.filter(item => 
+      item.assignedTo?.includes(participant)
+    ).map(item => {
+      const assignedCount = item.assignedTo?.filter(p => p === participant).length || 0
+      const totalAssigned = item.assignedTo?.length || 1
+      
+      let participantShare: number
+      if (item.shareEqually) {
+        // For equally shared items, split the total cost
+        participantShare = (item.total) / totalAssigned
+      } else if (item.quantity === 1) {
+        // For single items, split among all assigned participants
+        participantShare = item.total / totalAssigned
+      } else {
+        // For multiple quantity items, participant pays for their assigned units
+        participantShare = (item.total / item.quantity) * assignedCount
+      }
+      
+      return {
+        ...item,
+        participantShare: participantShare,
+        participantQty: item.shareEqually ? 1 : assignedCount,
+        sharedWith: item.assignedTo?.filter(p => p !== participant) || [],
+        totalSharedBy: totalAssigned
+      }
+    })
   }
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
@@ -313,80 +486,99 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
 
   return (
     <AnimatedContainer>
-      {/* Animated Background Elements */}
-      <BackgroundElement
-        sx={{
-          width: '320px',
-          height: '320px',
-          top: '-10%',
-          right: '-10%',
-          animationDelay: '0s',
-        }}
-      />
-      <BackgroundElement
-        sx={{
-          width: '320px',
-          height: '320px',
-          bottom: '-10%',
-          left: '-10%',
-          animationDelay: '1s',
-        }}
-      />
-      <BackgroundElement
-        sx={{
-          width: '128px',
-          height: '128px',
-          top: '25%',
-          left: '25%',
-          animationDelay: '0.5s',
-        }}
-      />
+      {/* Background Pattern Layer */}
+      <Box sx={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+      }}>
+        {/* Animated Background Elements */}
+        <BackgroundElement
+          sx={{
+            width: '320px',
+            height: '320px',
+            top: '-10%',
+            right: '-10%',
+            animationDelay: '0s',
+          }}
+        />
+        <BackgroundElement
+          sx={{
+            width: '320px',
+            height: '320px',
+            bottom: '-10%',
+            left: '-10%',
+            animationDelay: '1s',
+          }}
+        />
+        <BackgroundElement
+          sx={{
+            width: '128px',
+            height: '128px',
+            top: '25%',
+            left: '25%',
+            animationDelay: '0.5s',
+          }}
+        />
 
-      {/* Floating Dots */}
-      <FloatingElement sx={{ top: '20%', left: '10%', width: '8px', height: '8px', animationDelay: '0.3s' }} />
-      <FloatingElement sx={{ top: '40%', right: '16%', width: '4px', height: '4px', animationDelay: '0.7s' }} />
-      <FloatingElement sx={{ bottom: '32%', right: '20%', width: '6px', height: '6px', animationDelay: '1s' }} />
+        {/* Floating Dots */}
+        <FloatingElement sx={{ top: '20%', left: '10%', width: '8px', height: '8px', animationDelay: '0.3s' }} />
+        <FloatingElement sx={{ top: '40%', right: '16%', width: '4px', height: '4px', animationDelay: '0.7s' }} />
+        <FloatingElement sx={{ bottom: '32%', right: '20%', width: '6px', height: '6px', animationDelay: '1s' }} />
+      </Box>
 
-      <Container maxWidth="lg">
-        {/* Header */}
+      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        {/* Modern Header */}
         <HeaderContainer>
-          <HeaderCard>
+          <Box sx={{ 
+            background: 'rgba(30, 41, 59, 0.8)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(71, 85, 105, 0.3)',
+            padding: 3,
+            boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.4)',
+            position: 'relative',
+          }}>
             <Box sx={{ position: 'relative', zIndex: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <BackButton onClick={() => router.push('/app')}>
-                  <ArrowBackIcon />
-                </BackButton>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography
-                    variant="h4"
-                    component="h1"
-                    sx={{
-                      fontWeight: 700,
-                      background: 'linear-gradient(135deg, #f8fafc, #cbd5e1)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      color: 'transparent',
-                      mb: 1,
-                    }}
-                  >
-                    Receipt History
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: '#94a3b8',
-                      fontSize: '1.1rem',
-                    }}
-                  >
-                    View all your processed receipts and bill splits • Most recent first
-                  </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <BackButton onClick={() => router.push('/app')}>
+                    <ArrowBackIcon />
+                  </BackButton>
+                  <Box>
+                    <Typography
+                      variant="h5"
+                      component="h1"
+                      sx={{
+                        fontWeight: 600,
+                        color: '#f8fafc',
+                        mb: 0.5,
+                        letterSpacing: '-0.025em',
+                      }}
+                    >
+                      Receipt History
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: '#64748b',
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      Manage your processed receipts and bill splits
+                    </Typography>
+                  </Box>
                 </Box>
                 <BackButton onClick={fetchReceipts} disabled={loading}>
                   <RefreshIcon />
                 </BackButton>
               </Box>
             </Box>
-          </HeaderCard>
+          </Box>
         </HeaderContainer>
 
         {/* Error Alert */}
@@ -407,8 +599,81 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
           </Box>
         )}
 
-        {/* Content */}
-        {receipts.length === 0 ? (
+        {/* Compact Filter Bar */}
+        <Box sx={{ 
+          animation: `${slideIn} 0.8s ease-out 0.2s both`, 
+          position: 'relative', 
+          zIndex: 2,
+          mb: 3,
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1,
+            background: 'rgba(30, 41, 59, 0.8)',
+            borderRadius: '12px',
+            padding: '6px',
+            border: '1px solid rgba(71, 85, 105, 0.3)',
+          }}>
+            {/* Sort Toggle */}
+            <IconButton
+              onClick={() => setSortOrder(sortOrder === 'recent' ? 'oldest' : 'recent')}
+              sx={{
+                color: '#94a3b8',
+                fontSize: '0.875rem',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                background: 'rgba(107, 114, 128, 0.1)',
+                border: '1px solid rgba(107, 114, 128, 0.2)',
+                '&:hover': {
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3b82f6',
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                },
+              }}
+            >
+              <SortIcon sx={{ fontSize: '1rem', mr: 0.5 }} />
+              <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                {sortOrder === 'recent' ? 'Recent' : 'Oldest'}
+              </Typography>
+            </IconButton>
+
+            {/* Starred Filter Toggle */}
+            <IconButton
+              onClick={() => setShowStarredOnly(!showStarredOnly)}
+              sx={{
+                color: showStarredOnly ? '#fbbf24' : '#94a3b8',
+                fontSize: '0.875rem',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                background: showStarredOnly ? 'rgba(251, 191, 36, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                border: showStarredOnly ? '1px solid rgba(251, 191, 36, 0.3)' : '1px solid rgba(107, 114, 128, 0.2)',
+                '&:hover': {
+                  background: showStarredOnly ? 'rgba(251, 191, 36, 0.2)' : 'rgba(251, 191, 36, 0.1)',
+                  color: '#fbbf24',
+                  borderColor: 'rgba(251, 191, 36, 0.4)',
+                },
+                ...(showStarredOnly && {
+                  filter: 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.4))',
+                })
+              }}
+            >
+              {showStarredOnly ? <StarIcon sx={{ fontSize: '1rem', mr: 0.5 }} /> : <StarBorderIcon sx={{ fontSize: '1rem', mr: 0.5 }} />}
+              <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                {showStarredOnly ? 'Starred' : 'All'}
+              </Typography>
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* Content Area */}
+        <Box sx={{ 
+          position: 'relative', 
+          zIndex: 2,
+          background: 'transparent',
+        }}>
+          {getFilteredAndSortedReceipts().length === 0 ? (
           <EmptyStateContainer>
             <EmptyStateCard>
               <Box sx={{ position: 'relative', zIndex: 1 }}>
@@ -428,7 +693,7 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                     fontWeight: 600,
                   }}
                 >
-                  No receipts yet
+                  {showStarredOnly ? 'No starred receipts' : 'No receipts yet'}
                 </Typography>
                 <Typography 
                   variant="body2" 
@@ -437,7 +702,10 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                     mb: 3,
                   }}
                 >
-                  Process your first receipt to see it here
+                  {showStarredOnly 
+                    ? 'Star some receipts to see them here' 
+                    : 'Process your first receipt to see it here'
+                  }
                 </Typography>
                 <Button
                   variant="contained"
@@ -465,7 +733,7 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
         ) : (
           <Box key={refreshKey} sx={{ position: 'relative', zIndex: 2, pb: 2 }}>
             <Grid container spacing={3}>
-              {receipts.map((receipt, index) => (
+              {getFilteredAndSortedReceipts().map((receipt, index) => (
               <Grid item xs={12} sm={6} md={4} key={receipt.id}>
                 <Box sx={{ animation: `${fadeInUp} 0.8s ease-out ${0.3 + index * 0.1}s both` }}>
                   <ReceiptCard onClick={() => handleViewReceipt(receipt)}>
@@ -484,18 +752,58 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                         >
                           {receipt.restaurant_name}
                         </Typography>
-                        <IconButton 
-                          size="small" 
-                          sx={{ 
-                            color: '#3b82f6',
-                            background: 'rgba(59, 130, 246, 0.1)',
-                            '&:hover': {
-                              background: 'rgba(59, 130, 246, 0.2)',
-                            },
-                          }}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <IconButton 
+                            size="small"
+                            onClick={(e) => handleStarReceipt(receipt.id, receipt.starred || false, e)}
+                            sx={{ 
+                              color: receipt.starred ? '#fbbf24' : '#6b7280',
+                              background: receipt.starred ? 'rgba(251, 191, 36, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                color: receipt.starred ? '#f59e0b' : '#fbbf24',
+                                background: receipt.starred ? 'rgba(251, 191, 36, 0.2)' : 'rgba(251, 191, 36, 0.1)',
+                                transform: 'scale(1.1)',
+                                boxShadow: receipt.starred ? '0 0 20px rgba(251, 191, 36, 0.4)' : '0 0 15px rgba(251, 191, 36, 0.3)',
+                              },
+                              ...(receipt.starred && {
+                                filter: 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.6))',
+                                animation: `${pulse} 2s ease-in-out infinite`,
+                              })
+                            }}
+                          >
+                            {receipt.starred ? <StarIcon /> : <StarBorderIcon />}
+                          </IconButton>
+                          <IconButton 
+                            size="small"
+                            onClick={(e) => handleDeleteReceipt(receipt.id, receipt.restaurant_name, e)}
+                            sx={{ 
+                              color: '#6b7280',
+                              background: 'rgba(107, 114, 128, 0.1)',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                color: '#ef4444',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                transform: 'scale(1.1)',
+                                boxShadow: '0 0 15px rgba(239, 68, 68, 0.3)',
+                              },
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              color: '#3b82f6',
+                              background: 'rgba(59, 130, 246, 0.1)',
+                              '&:hover': {
+                                background: 'rgba(59, 130, 246, 0.2)',
+                              },
+                            }}
+                          >
+                            <VisibilityIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
 
                       <Typography 
@@ -539,6 +847,7 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
             </Grid>
           </Box>
         )}
+        </Box>
 
         {/* Receipt Detail Dialog */}
         <Dialog 
@@ -548,78 +857,203 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
           fullWidth
           PaperProps={{
             sx: {
-              background: 'rgba(30, 41, 59, 0.95)',
+              background: 'rgba(30, 41, 59, 0.8)',
               backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
+              border: '1px solid rgba(71, 85, 105, 0.3)',
               borderRadius: '20px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
             }
           }}
         >
           {selectedReceipt && (
             <>
-              <DialogTitle sx={{ color: '#f8fafc' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h5" sx={{ color: '#f8fafc', fontWeight: 600 }}>
-                    {selectedReceipt.restaurant_name}
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: '#3b82f6', fontWeight: 700 }}>
-                    {formatCurrency(selectedReceipt.total_amount, selectedReceipt.currency)}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                  {formatDate(selectedReceipt.created_at)}
-                </Typography>
-              </DialogTitle>
-              
-              <DialogContent sx={{ color: '#f8fafc' }}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2, color: '#f8fafc', fontWeight: 600 }}>
-                  Items ({selectedReceipt.receipt_items.length})
-                </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {selectedReceipt.receipt_items.map((item, index) => (
-                    <Box 
-                      key={index}
-                      sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        py: 1.5,
-                        px: 2,
-                        background: 'rgba(51, 65, 85, 0.5)',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(71, 85, 105, 0.3)',
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body1" sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                          {item.name}
-                        </Typography>
-                        {item.originalName && item.originalName !== item.name && (
-                          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                            ({item.originalName})
-                          </Typography>
-                        )}
-                      </Box>
-                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#3b82f6' }}>
-                        {formatCurrency(item.price, selectedReceipt.currency)}
+              <DialogTitle sx={{ color: '#f8fafc', textAlign: 'center', py: 3 }}>
+                {selectedParticipant ? (
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                      <IconButton
+                        onClick={handleBackToSummary}
+                        sx={{
+                          position: 'absolute',
+                          left: 16,
+                          color: '#94a3b8',
+                          '&:hover': { color: '#f8fafc' }
+                        }}
+                      >
+                        <ArrowBackIcon />
+                      </IconButton>
+                      <Typography variant="h5" sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                        {selectedReceipt.restaurant_name.toUpperCase()}
                       </Typography>
                     </Box>
-                  ))}
-                </Box>
-
-                {selectedReceipt.participants.length > 0 && (
-                  <>
-                    <Typography variant="h6" gutterBottom sx={{ mt: 3, color: '#f8fafc', fontWeight: 600 }}>
-                      Participants
+                    <Typography variant="body1" sx={{ color: '#94a3b8', mb: 1 }}>
+                      INDIVIDUAL RECEIPT
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {selectedReceipt.participants.map((participant, index) => (
-                        <StyledChip key={index} label={participant} />
+                    <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                      {selectedParticipant.toUpperCase()}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                      {formatDate(selectedReceipt.created_at)}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Typography variant="h5" sx={{ color: '#f8fafc', fontWeight: 600, mb: 1 }}>
+                      {selectedReceipt.restaurant_name.toUpperCase()}
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#94a3b8', mb: 2 }}>
+                      BILL SPLIT SUMMARY
+                    </Typography>
+                    <Box sx={{ 
+                      width: 64, 
+                      height: 64, 
+                      borderRadius: '50%', 
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 16px',
+                      boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)'
+                    }}>
+                      <Box sx={{ 
+                        width: 24, 
+                        height: 24, 
+                        borderRadius: '50%', 
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Box sx={{ 
+                          width: 0, 
+                          height: 0, 
+                          borderLeft: '4px solid transparent',
+                          borderRight: '4px solid transparent',
+                          borderTop: '6px solid #10b981',
+                          transform: 'rotate(90deg)'
+                        }} />
+                      </Box>
+                    </Box>
+                    <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                      {formatDate(selectedReceipt.created_at)}
+                    </Typography>
+                  </Box>
+                )}
+              </DialogTitle>
+              
+              <DialogContent sx={{ color: '#f8fafc', px: 0 }}>
+                {selectedParticipant ? (
+                  /* Individual Participant Receipt */
+                  <Box sx={{ px: 3 }}>
+                    {/* Participant Items */}
+                    <Typography variant="h6" gutterBottom sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                      Items ({getParticipantItems(selectedParticipant, selectedReceipt).length})
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {getParticipantItems(selectedParticipant, selectedReceipt).map((item, index) => (
+                        <Box 
+                          key={index}
+                          sx={{ 
+                            py: 2,
+                            px: 3,
+                            background: 'rgba(30, 41, 59, 0.8)',
+                            borderRadius: '16px',
+                            border: '1px solid rgba(71, 85, 105, 0.3)',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                            <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                              {item.name}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#3b82f6' }}>
+                              {formatCurrency(item.participantShare, selectedReceipt.currency)}
+                            </Typography>
+                          </Box>
+                          
+                          {item.sharedWith.length > 0 ? (
+                            <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                              Shared with {item.sharedWith.join(', ')}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                              {item.shareEqually ? 'Cost split equally among ' + item.totalSharedBy + ' people' : 'Just you'}
+                            </Typography>
+                          )}
+                          
+                          {item.shareEqually && (
+                            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>
+                              {formatCurrency(item.total, selectedReceipt.currency)} ÷ {item.totalSharedBy} people
+                            </Typography>
+                          )}
+                          
+                          {!item.shareEqually && item.quantity > 1 && (
+                            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.875rem' }}>
+                              You got {item.participantQty} of {item.quantity} × {formatCurrency(item.total / item.quantity, selectedReceipt.currency)}
+                            </Typography>
+                          )}
+                        </Box>
                       ))}
                     </Box>
-                  </>
+                  </Box>
+                ) : (
+                  /* Split Summary - Participant Cards */
+                  <Box>
+                    {selectedReceipt.split_results.map((result, index) => (
+                      <Box 
+                        key={index}
+                        onClick={() => handleParticipantClick(result.participant)}
+                        sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          py: 3,
+                          px: 4,
+                          background: 'rgba(30, 41, 59, 0.8)',
+                          borderBottom: index < selectedReceipt.split_results.length - 1 ? '1px solid rgba(71, 85, 105, 0.3)' : 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            background: 'rgba(59, 130, 246, 0.1)',
+                          },
+                        }}
+                      >
+                        <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 600, textTransform: 'uppercase' }}>
+                          {result.participant}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: '#3b82f6' }}>
+                            {formatCurrency(result.total, result.currency)}
+                          </Typography>
+                          <Box sx={{ 
+                            color: '#94a3b8',
+                            fontSize: '1.5rem',
+                            transform: 'rotate(0deg)',
+                            transition: 'transform 0.2s ease'
+                          }}>
+                            ›
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))}
+                    
+                    {/* Total Section */}
+                    <Box sx={{ 
+                      py: 4,
+                      px: 4,
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      borderTop: '2px solid rgba(59, 130, 246, 0.3)'
+                    }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" sx={{ color: '#f8fafc', fontWeight: 600, textTransform: 'uppercase' }}>
+                          Total
+                        </Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#3b82f6' }}>
+                          {formatCurrency(selectedReceipt.total_amount, selectedReceipt.currency)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
                 )}
               </DialogContent>
               

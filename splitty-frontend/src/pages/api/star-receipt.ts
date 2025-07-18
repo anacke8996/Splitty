@@ -23,7 +23,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'PATCH') {
     return res.status(405).json({ message: 'Method not allowed' })
   }
 
@@ -35,6 +35,11 @@ export default async function handler(
     }
 
     const { user, token } = authResult;
+    const { receiptId, starred } = req.body;
+
+    if (!receiptId || typeof starred !== 'boolean') {
+      return res.status(400).json({ error: 'receiptId and starred (boolean) are required' });
+    }
 
     // Create authenticated Supabase client
     const { createClient } = await import('@supabase/supabase-js');
@@ -50,37 +55,42 @@ export default async function handler(
       }
     );
 
-    // Fetch user's receipts from database
-    console.log('Receipts fetch: Authenticated user:', user.id, user.email);
-    const { data: receipts, error } = await authenticatedSupabase
+    console.log(`Attempting to ${starred ? 'star' : 'unstar'} receipt ${receiptId} for user ${user.id}`);
+
+    // Update the receipt starred status
+    const { data, error } = await authenticatedSupabase
       .from('receipts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .update({ starred })
+      .eq('id', receiptId)
+      .eq('user_id', user.id) // Ensure user can only star their own receipts
+      .select()
+      .single();
 
     if (error) {
-      console.error('Database query error:', error);
+      console.error('Database update error:', error);
+      
+      // Check if it's a column not found error
+      if (error.code === 'PGRST204' && error.message.includes('starred')) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Starred feature not available - database column missing. Please add "starred" boolean column to receipts table.',
+          needsDbUpdate: true,
+          sqlCommand: 'ALTER TABLE receipts ADD COLUMN starred BOOLEAN DEFAULT false;'
+        });
+      }
+      
       return res.status(500).json({ 
         success: false, 
-        error: 'Failed to fetch receipts' 
+        error: 'Failed to update receipt starred status',
+        details: error.message
       });
     }
 
-    console.log('Receipts fetch result:', receipts?.length || 0, 'receipts found for user', user.id);
-    if (receipts && receipts.length > 0) {
-      console.log('Latest receipt created_at:', receipts[0].created_at);
-      console.log('All receipt dates:', receipts.map(r => r.created_at));
-    }
-
-    // Ensure starred field exists and defaults to false
-    const processedReceipts = (receipts || []).map(receipt => ({
-      ...receipt,
-      starred: receipt.starred || false
-    }));
+    console.log(`Successfully ${starred ? 'starred' : 'unstarred'} receipt ${receiptId}`);
 
     res.status(200).json({ 
       success: true, 
-      receipts: processedReceipts
+      receipt: data
     });
   } catch (error) {
     console.error('Unexpected error:', error);

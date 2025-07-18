@@ -23,7 +23,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'DELETE') {
     return res.status(405).json({ message: 'Method not allowed' })
   }
 
@@ -35,6 +35,11 @@ export default async function handler(
     }
 
     const { user, token } = authResult;
+    const { receiptId } = req.body;
+
+    if (!receiptId) {
+      return res.status(400).json({ error: 'receiptId is required' });
+    }
 
     // Create authenticated Supabase client
     const { createClient } = await import('@supabase/supabase-js');
@@ -50,37 +55,50 @@ export default async function handler(
       }
     );
 
-    // Fetch user's receipts from database
-    console.log('Receipts fetch: Authenticated user:', user.id, user.email);
-    const { data: receipts, error } = await authenticatedSupabase
-      .from('receipts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    console.log(`Attempting to delete receipt ${receiptId} for user ${user.id}`);
 
-    if (error) {
-      console.error('Database query error:', error);
-      return res.status(500).json({ 
+    // First, verify the receipt belongs to the user and get its details
+    const { data: receiptData, error: fetchError } = await authenticatedSupabase
+      .from('receipts')
+      .select('id, restaurant_name, starred')
+      .eq('id', receiptId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !receiptData) {
+      console.error('Receipt not found or access denied:', fetchError);
+      return res.status(404).json({ 
         success: false, 
-        error: 'Failed to fetch receipts' 
+        error: 'Receipt not found or access denied' 
       });
     }
 
-    console.log('Receipts fetch result:', receipts?.length || 0, 'receipts found for user', user.id);
-    if (receipts && receipts.length > 0) {
-      console.log('Latest receipt created_at:', receipts[0].created_at);
-      console.log('All receipt dates:', receipts.map(r => r.created_at));
+    // Delete the receipt
+    const { error: deleteError } = await authenticatedSupabase
+      .from('receipts')
+      .delete()
+      .eq('id', receiptId)
+      .eq('user_id', user.id); // Double-check ownership
+
+    if (deleteError) {
+      console.error('Database delete error:', deleteError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to delete receipt',
+        details: deleteError.message
+      });
     }
 
-    // Ensure starred field exists and defaults to false
-    const processedReceipts = (receipts || []).map(receipt => ({
-      ...receipt,
-      starred: receipt.starred || false
-    }));
+    console.log(`Successfully deleted receipt ${receiptId} (${receiptData.restaurant_name}) for user ${user.id}`);
 
     res.status(200).json({ 
       success: true, 
-      receipts: processedReceipts
+      message: 'Receipt deleted successfully',
+      deletedReceipt: {
+        id: receiptData.id,
+        restaurant_name: receiptData.restaurant_name,
+        starred: receiptData.starred
+      }
     });
   } catch (error) {
     console.error('Unexpected error:', error);
