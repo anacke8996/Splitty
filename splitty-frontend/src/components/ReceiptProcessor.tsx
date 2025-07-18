@@ -610,25 +610,59 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     const containerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
+    const [startY, setStartY] = useState(0);
     const [currentX, setCurrentX] = useState(0);
+    const [currentY, setCurrentY] = useState(0);
+    const [isVerticalScroll, setIsVerticalScroll] = useState(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
+      // Only handle touch if not inside a scrollable area
+      const target = e.target as HTMLElement;
+      const scrollableParent = target.closest('[data-scrollable="true"]');
+      if (scrollableParent) return;
+
       setIsDragging(true);
       setStartX(e.touches[0].clientX);
+      setStartY(e.touches[0].clientY);
       setCurrentX(e.touches[0].clientX);
+      setCurrentY(e.touches[0].clientY);
+      setIsVerticalScroll(false);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
       if (!isDragging) return;
-      setCurrentX(e.touches[0].clientX);
+      
+      const newX = e.touches[0].clientX;
+      const newY = e.touches[0].clientY;
+      
+      // Determine if this is a vertical scroll gesture
+      const deltaX = Math.abs(newX - startX);
+      const deltaY = Math.abs(newY - startY);
+      
+      if (!isVerticalScroll && deltaY > deltaX && deltaY > 10) {
+        setIsVerticalScroll(true);
+        setIsDragging(false);
+        return;
+      }
+      
+      // If it's a horizontal swipe, update position
+      if (deltaX > deltaY && deltaX > 10) {
+        setCurrentX(newX);
+        setCurrentY(newY);
+      }
     };
 
     const handleTouchEnd = () => {
-      if (!isDragging) return;
+      if (!isDragging || isVerticalScroll) {
+        setIsDragging(false);
+        setIsVerticalScroll(false);
+        return;
+      }
+      
       setIsDragging(false);
       
       const diff = startX - currentX;
-      const threshold = 50; // Minimum swipe distance
+      const threshold = 80; // Increased threshold for more deliberate swipes
       
       if (Math.abs(diff) > threshold) {
         if (diff > 0 && index < React.Children.count(children) - 1) {
@@ -642,7 +676,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     };
 
     const containerWidth = containerRef.current?.offsetWidth || 1;
-    const dragDelta = isDragging ? currentX - startX : 0;
+    const dragDelta = isDragging && !isVerticalScroll ? currentX - startX : 0;
     const dragPercent = (dragDelta / containerWidth) * 100;
 
     const translatePercent = -index * 100 + dragPercent;
@@ -656,7 +690,8 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           width: '100%',
           height: '100%',
           flex: 1,
-          minHeight: 0
+          minHeight: 0,
+          touchAction: 'manipulation', // Allow touch but prevent default behaviors we handle
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -674,11 +709,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           {React.Children.map(children, (child, i) => (
             <div
               style={{
-                width: '84%',
-                margin: '0 8%',
+                width: '90%', // Increased from 84% for more content space
+                margin: '0 5%', // Reduced margins
                 flexShrink: 0,
                 transition: 'transform 0.3s',
-                transform: i === index ? 'scale(1)' : 'scale(0.94)'
+                transform: i === index ? 'scale(1)' : 'scale(0.96)', // Less dramatic scaling
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
               {child}
@@ -2277,7 +2314,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
         minHeight: 'max(100vh, 100dvh)',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
         position: 'relative',
-        overflow: 'auto', // Allow scrolling
+        overflow: 'auto',
         padding: 2,
       }}>
         {/* Animated Background Elements */}
@@ -2504,7 +2541,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   </Box>
                 </ReceiptHeader>
 
-                <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, minHeight: 0 }}>
+                <Box 
+                  sx={{ flex: 1, overflowY: 'auto', mb: 2, minHeight: 0 }}
+                  data-scrollable="true"
+                >
                   {items.map((item, itemIndex) => {
                     const participantQty = item.shared_by?.filter(p => p === participant).length || 0;
                     const isAssignedToParticipant = participantQty > 0;
@@ -2525,31 +2565,42 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                     return (
                       <ReceiptItemRow key={itemIndex} sx={{ 
                         py: 1.5,
-                        px: isSpecialItem ? 1.5 : 0,
+                        px: isSpecialItem ? 1.5 : 1,
+                        mb: 1,
                         opacity: isSpecialItem && !isAssignedToParticipant ? 0.6 : 1,
                         backgroundColor: isSpecialItem 
                           ? isTaxItem 
                             ? 'rgba(25, 118, 210, 0.08)' 
                             : 'rgba(255, 193, 7, 0.08)' 
-                          : 'transparent',
-                        borderRadius: isSpecialItem ? 2 : 0,
+                          : 'rgba(15, 23, 42, 0.3)',
+                        borderRadius: 2,
                         border: isSpecialItem 
                           ? isTaxItem 
                             ? '1px solid rgba(25, 118, 210, 0.2)' 
                             : '1px solid rgba(255, 193, 7, 0.2)' 
-                          : 'none',
-                        my: isSpecialItem ? 0.5 : 0,
+                          : '1px solid rgba(71, 85, 105, 0.15)',
+                        backdropFilter: 'blur(4px)',
+                        minHeight: 56,
+                        display: 'flex',
+                        alignItems: 'stretch',
+                        gap: 1.5
                       }}>
-                        <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1 }}>
                             <Typography variant="body1" sx={{ 
                               fontWeight: 600, 
                               color: '#f8fafc',
-                              wordBreak: 'break-word',
-                              lineHeight: 1.4,
+                              lineHeight: 1.2,
                               flex: 1,
                               minWidth: 0,
-                              fontSize: '1.1rem',
+                              fontSize: '0.95rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              wordBreak: 'break-word',
+                              hyphens: 'auto'
                             }}>
                               {showOriginalLanguage && item.originalItem ? item.originalItem : item.item}
                             </Typography>
@@ -2557,18 +2608,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               <Box sx={{ 
                                 backgroundColor: isTaxItem ? 'primary.main' : 'warning.main', 
                                 color: isTaxItem ? 'primary.contrastText' : 'warning.contrastText',
-                                borderRadius: '4px',
-                                px: 0.5,
-                                py: 0.25,
+                                borderRadius: '6px',
+                                px: 1,
+                                py: 0.5,
                                 fontSize: '0.7rem',
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 textTransform: 'uppercase',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
+                                flexShrink: 0,
                                 '&:hover': {
                                   opacity: 0.8,
                                   transform: 'scale(0.95)',
-                                }
+                                },
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                               }}
                               onClick={() => {
                                 // Toggle special item status
@@ -2638,8 +2691,13 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               display: 'flex', 
                               alignItems: 'center', 
                               gap: 1,
-                              mt: 1,
-                              mb: 0.5
+                              mt: 0.5,
+                              mb: 0,
+                              backgroundColor: 'rgba(71, 85, 105, 0.1)',
+                              borderRadius: 1.5,
+                              px: 1,
+                              py: 0.5,
+                              border: '1px solid rgba(71, 85, 105, 0.15)'
                             }}>
                               <Switch
                                 size="small"
@@ -2667,30 +2725,47 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                                 }}
                               />
                               <Typography variant="caption" sx={{ 
-                                color: '#94a3b8',
-                                fontSize: '0.75rem',
+                                color: '#cbd5e1',
+                                fontSize: '0.8rem',
+                                fontWeight: 500,
+                                flex: 1
                               }}>
-                                {item.shareEqually ? 'Split cost equally among selected people' : 'Split evenly'}
+                                {item.shareEqually ? 'Split cost equally among selected people' : 'Split evenly among people'}
                               </Typography>
                             </Box>
                           )}
                           
-                          <Typography variant="body1" sx={{ color: '#94a3b8', fontSize: '0.9rem', mt: 0.5 }}>
+                          <Typography variant="body2" sx={{ 
+                            color: '#94a3b8', 
+                            fontSize: '0.85rem',
+                            lineHeight: 1.3,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
                             {isSpecialItem 
                               ? `Split among ${totalAssigned} people`
                               : item.shareEqually 
                                 ? `Cost split equally among ${item.shared_by?.length || 0} people`
-                                : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}${assignmentSummary ? ` | ${assignmentSummary}` : ''}`
+                                : `Qty: ${item.qty} × ${formatCurrency(item.converted_price || item.price, targetCurrency)}${participantQty ? ` (You: ${participantQty})` : ''}`
                             }
                           </Typography>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                          <Typography variant="body1" sx={{ 
+                        <Box sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'flex-end', 
+                          justifyContent: 'center',
+                          gap: 0.5,
+                          flexShrink: 0,
+                          minWidth: 100
+                        }}>
+                          <Typography variant="h6" sx={{ 
                             color: '#3b82f6', 
                             fontWeight: 700,
-                            minWidth: 90,
                             textAlign: 'right',
-                            fontSize: '1.1rem'
+                            fontSize: '1.1rem',
+                            lineHeight: 1.2
                           }}>
                             {isSpecialItem
                               ? formatCurrency(totalAssigned > 0 ? (item.converted_price || item.price) / totalAssigned : 0, targetCurrency)
@@ -2702,24 +2777,52 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                               checked={getCheckboxState(item, currentParticipant)}
                               onChange={() => toggleItemAssignment(itemIndex, currentParticipant)}
                               size="medium"
-                              sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }}
+                              sx={{ 
+                                '& .MuiSvgIcon-root': { fontSize: 28 },
+                                '&:hover': { transform: 'scale(1.05)' },
+                                transition: 'transform 0.2s ease'
+                              }}
                             />
                           ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: 1,
+                              backgroundColor: 'rgba(71, 85, 105, 0.2)',
+                              borderRadius: 2,
+                              padding: '4px 8px',
+                              border: '1px solid rgba(71, 85, 105, 0.3)'
+                            }}>
                               <IconButton
-                                size="small"
+                                size="medium"
                                 onClick={() => removeUnit(itemIndex, currentParticipant)}
                                 disabled={participantQty === 0}
+                                sx={{
+                                  color: participantQty === 0 ? 'rgba(148, 163, 184, 0.5)' : '#ef4444',
+                                  '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+                                  padding: '8px'
+                                }}
                               >
                                 <RemoveCircleOutlineIcon fontSize="small" />
                               </IconButton>
-                              <Typography variant="body1" sx={{ minWidth: 16, textAlign: 'center' }}>
+                              <Typography variant="h6" sx={{ 
+                                minWidth: 24, 
+                                textAlign: 'center',
+                                fontWeight: 700,
+                                color: '#f8fafc',
+                                fontSize: '1.1rem'
+                              }}>
                                 {participantQty}
                               </Typography>
                               <IconButton
-                                size="small"
+                                size="medium"
                                 onClick={() => addUnit(itemIndex, currentParticipant)}
                                 disabled={item.shared_by!.length >= item.qty}
+                                sx={{
+                                  color: item.shared_by!.length >= item.qty ? 'rgba(148, 163, 184, 0.5)' : '#10b981',
+                                  '&:hover': { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+                                  padding: '8px'
+                                }}
                               >
                                 <AddCircleOutlineIcon fontSize="small" />
                               </IconButton>
