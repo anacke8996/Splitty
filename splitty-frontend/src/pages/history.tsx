@@ -22,6 +22,7 @@ import {
   Restaurant as RestaurantIcon,
   Receipt as ReceiptIcon,
   ArrowBack as ArrowBackIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/router'
@@ -72,12 +73,11 @@ const slideIn = keyframes`
 
 // Styled components
 const AnimatedContainer = styled(Box)(({ theme }) => ({
-  minHeight: 'max(100vh, 100dvh)',
-  height: 'max(100vh, 100dvh)',
+  minHeight: '100vh',
   background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%)',
   position: 'relative',
-  overflow: 'hidden',
   padding: theme.spacing(2),
+  paddingBottom: theme.spacing(4),
 }))
 
 const BackgroundElement = styled(Box)(({ theme }) => ({
@@ -199,6 +199,7 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
   const [error, setError] = useState('')
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const { user, session } = useAuth()
   const router = useRouter()
@@ -209,25 +210,58 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
     }
   }, [user, session])
 
+  // Debug effect to track receipts state changes
+  useEffect(() => {
+    console.log('History page: receipts state changed to:', receipts?.length || 0, 'receipts');
+    if (receipts && receipts.length > 0) {
+      console.log('History page: First 3 receipts in state:', receipts.slice(0, 3).map(r => ({ 
+        id: r.id, 
+        restaurant: r.restaurant_name, 
+        created_at: r.created_at 
+      })));
+    }
+  }, [receipts])
+
   const fetchReceipts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/receipts', {
+      setError('') // Clear previous errors
+      
+      console.log('History page: Fetching receipts for user:', user?.id, user?.email);
+      console.log('History page: Using session token:', session?.access_token?.substring(0, 20) + '...');
+      
+      const response = await fetch(`/api/receipts?t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-cache',
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         },
       })
 
       const data = await response.json()
+      console.log('History page: API response:', data);
 
       if (data.success) {
-        setReceipts(data.receipts)
+        // Receipts are already sorted by most recent first from the API
+        console.log('History page: Setting', data.receipts?.length || 0, 'receipts');
+        console.log('History page: Current receipts state before update:', receipts?.length || 0);
+        console.log('History page: New receipts from API:', data.receipts?.map(r => ({ 
+          id: r.id, 
+          restaurant: r.restaurant_name, 
+          created_at: r.created_at 
+        })));
+        setReceipts(data.receipts || [])
+        setRefreshKey(prev => prev + 1) // Force re-render
+        console.log('History page: setReceipts called with', data.receipts?.length || 0, 'receipts');
       } else {
+        console.error('History page: API error:', data.error);
         setError(data.error || 'Failed to fetch receipts')
       }
     } catch (err) {
+      console.error('History page: Fetch error:', err);
       setError('Failed to fetch receipts')
-      console.error('Error fetching receipts:', err)
     } finally {
       setLoading(false)
     }
@@ -344,9 +378,12 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                       fontSize: '1.1rem',
                     }}
                   >
-                    View all your processed receipts and bill splits
+                    View all your processed receipts and bill splits • Most recent first
                   </Typography>
                 </Box>
+                <BackButton onClick={fetchReceipts} disabled={loading}>
+                  <RefreshIcon />
+                </BackButton>
               </Box>
             </Box>
           </HeaderCard>
@@ -426,8 +463,9 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
             </EmptyStateCard>
           </EmptyStateContainer>
         ) : (
-          <Grid container spacing={3}>
-            {receipts.map((receipt, index) => (
+          <Box key={refreshKey} sx={{ position: 'relative', zIndex: 2, pb: 2 }}>
+            <Grid container spacing={3}>
+              {receipts.map((receipt, index) => (
               <Grid item xs={12} sm={6} md={4} key={receipt.id}>
                 <Box sx={{ animation: `${fadeInUp} 0.8s ease-out ${0.3 + index * 0.1}s both` }}>
                   <ReceiptCard onClick={() => handleViewReceipt(receipt)}>
@@ -498,7 +536,8 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                 </Box>
               </Grid>
             ))}
-          </Grid>
+            </Grid>
+          </Box>
         )}
 
         {/* Receipt Detail Dialog */}

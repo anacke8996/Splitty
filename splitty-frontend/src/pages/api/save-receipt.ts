@@ -7,7 +7,7 @@ async function getUserFromAuth(req: NextApiRequest) {
       return null;
     }
 
-    const token = authHeader.substring(7);
+    const token = authHeader.split(' ')[1];
     
     // Create Supabase client
     const { createClient } = await import('@supabase/supabase-js');
@@ -24,6 +24,7 @@ async function getUserFromAuth(req: NextApiRequest) {
       return null;
     }
 
+    console.log('Save-receipt: Authenticated user:', user.id, user.email);
     return { user, token };
   } catch (error) {
     console.error('Auth verification failed:', error);
@@ -78,7 +79,7 @@ export default async function handler(
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Create authenticated Supabase client
+    // Create authenticated Supabase client (same pattern as receipts.ts)
     const { createClient } = await import('@supabase/supabase-js');
     const authenticatedSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,20 +115,31 @@ export default async function handler(
     }));
 
     // Save the completed receipt to database
+    // Match exact database schema from Supabase
+    const receiptToSave = {
+      user_id: user.id,                                                    // uuid, nullable
+      restaurant_name: receiptData.restaurantName,                         // text, not null
+      total_amount: receiptData.totalAmount,                               // numeric, not null
+      currency: receiptData.targetCurrency || receiptData.currency,        // text, not null
+      receipt_items: dbItems,                                              // jsonb, not null
+      participants: receiptData.participants,                              // ARRAY, not null
+      split_results: splitResults                                          // jsonb, not null
+      // Note: id and created_at will be automatically set by the database
+      // Removed: source_currency, detected_language, completed_at (don't exist in schema)
+    };
+    
+    console.log('Save-receipt: Attempting to save receipt for user:', user.id);
+    console.log('Save-receipt: Receipt data:', {
+      restaurant: receiptToSave.restaurant_name,
+      total: receiptToSave.total_amount,
+      currency: receiptToSave.currency,
+      user_id: receiptToSave.user_id
+    });
+    console.log('Save-receipt: All columns being inserted:', Object.keys(receiptToSave));
+
     const { data, error } = await authenticatedSupabase
       .from('receipts')
-      .insert({
-        user_id: user.id,
-        restaurant_name: receiptData.restaurantName,
-        total_amount: receiptData.totalAmount,
-        currency: receiptData.targetCurrency || receiptData.currency,
-        source_currency: receiptData.sourceCurrency,
-        receipt_items: dbItems,
-        participants: receiptData.participants,
-        split_results: splitResults,
-        detected_language: receiptData.detectedLanguage,
-        completed_at: new Date().toISOString()
-      })
+      .insert(receiptToSave)
       .select()
       .single();
 
@@ -140,7 +152,7 @@ export default async function handler(
       });
     }
 
-    console.log('Receipt saved to database successfully:', data.id);
+    console.log('Receipt saved to database successfully:', data.id, 'at', data.created_at);
 
     return res.status(200).json({ 
       success: true, 

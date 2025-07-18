@@ -51,6 +51,7 @@ export default async function handler(
     );
 
     // Fetch user's receipts from database
+    console.log('Receipts fetch: Authenticated user:', user.id, user.email);
     const { data: receipts, error } = await authenticatedSupabase
       .from('receipts')
       .select('*')
@@ -63,6 +64,12 @@ export default async function handler(
         success: false, 
         error: 'Failed to fetch receipts' 
       });
+    }
+
+    console.log('Receipts fetch result:', receipts?.length || 0, 'receipts found for user', user.id);
+    if (receipts && receipts.length > 0) {
+      console.log('Latest receipt created_at:', receipts[0].created_at);
+      console.log('All receipt dates:', receipts.map(r => r.created_at));
     }
 
     res.status(200).json({ 
