@@ -502,6 +502,9 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   const [restaurantName, setRestaurantName] = useState<string>('');
   const [savingReceipt, setSavingReceipt] = useState<boolean>(false);
   
+  // Refs to preserve scroll position for each participant during item updates
+  const scrollContainerRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const [scrollPositions, setScrollPositions] = React.useState<Record<number, number>>({});
 
   
   // New state for review step
@@ -829,41 +832,44 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
   };
 
   // Initialize special items to be assigned to all participants when participants change
-  React.useEffect(() => {
-    try {
-      console.log('🔄 Validation useEffect triggered, participants:', participants.length, 'taxIncluded:', taxIncluded);
-      if (participants.length > 0) {
-        const updatedItems = items.map(item => {
-          const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
-          if (validatedItem && validatedItem.isSpecialItem) {
-            // For separate tax (American style), auto-assign tax to all participants
-            if (validatedItem.specialType === 'tax' && !taxIncluded) {
-              console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
-              return {
-                ...validatedItem,
-                shared_by: [...participants]
-              };
-            }
-            // For other special items (tips, service charges), also auto-assign
-            else if (validatedItem.specialType !== 'tax') {
-              return {
-                ...validatedItem,
-                shared_by: [...participants]
-              };
-            }
-            // For included tax, don't auto-assign (it's filtered out anyway)
-            else {
-              return validatedItem;
-            }
-          }
-          return validatedItem;
-        }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
-        setItems(updatedItems);
-      }
-    } catch (error) {
-      console.error('❌ Error in validation useEffect:', error);
-    }
-  }, [participants, taxIncluded]);
+  // TEMPORARILY DISABLED - This useEffect was causing resets during checkbox interactions
+  // React.useEffect(() => {
+  //   try {
+  //     console.log('🔄 Validation useEffect triggered, participants:', participants.length, 'taxIncluded:', taxIncluded);
+  //     if (participants.length > 0) {
+  //       setItems(prevItems => {
+  //         const updatedItems = prevItems.map(item => {
+  //           const validatedItem = validateItemClassification(item, taxIncluded, taxInclusionReason);
+  //           if (validatedItem && validatedItem.isSpecialItem) {
+  //             // For separate tax (American style), auto-assign tax to all participants
+  //             if (validatedItem.specialType === 'tax' && !taxIncluded) {
+  //               console.log(`💰 Auto-assigning separate tax "${validatedItem.item}" to all participants`);
+  //               return {
+  //                 ...validatedItem,
+  //                 shared_by: [...participants]
+  //               };
+  //             }
+  //             // For other special items (tips, service charges), also auto-assign
+  //             else if (validatedItem.specialType !== 'tax') {
+  //               return {
+  //                 ...validatedItem,
+  //                 shared_by: [...participants]
+  //               };
+  //             }
+  //             // For included tax, don't auto-assign (it's filtered out anyway)
+  //             else {
+  //               return validatedItem;
+  //             }
+  //           }
+  //           return validatedItem;
+  //         }).filter(item => item !== null); // Filter out null items (total/subtotal lines)
+  //         return updatedItems;
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ Error in validation useEffect:', error);
+  //   }
+  // }, [participants, taxIncluded, taxInclusionReason]);
 
     const processReceipt = async () => {
     try {
@@ -1128,38 +1134,74 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     }
   };
 
-  const toggleItemAssignment = (itemIndex: number, participant: string) => {
-    const updatedItems = [...items];
-    const item = updatedItems[itemIndex];
+  // Scroll position preservation helpers for each participant
+  const preserveScrollPosition = React.useCallback(() => {
+    const currentContainer = scrollContainerRefs.current[currentParticipantIndex];
+    if (currentContainer) {
+      setScrollPositions(prev => ({
+        ...prev,
+        [currentParticipantIndex]: currentContainer.scrollTop
+      }));
+    }
+  }, [currentParticipantIndex]);
+
+  const restoreScrollPosition = React.useCallback(() => {
+    const currentContainer = scrollContainerRefs.current[currentParticipantIndex];
+    const savedPosition = scrollPositions[currentParticipantIndex];
     
-    if (!item.shared_by) {
-      item.shared_by = [];
+    if (currentContainer && savedPosition !== undefined) {
+      requestAnimationFrame(() => {
+        if (currentContainer) {
+          currentContainer.scrollTop = savedPosition;
+        }
+      });
     }
+  }, [currentParticipantIndex, scrollPositions]);
 
-    if (item.qty === 1 || item.shareEqually) {
-      // Simple toggle membership for single-unit items or share equally items
-      const idx = item.shared_by.indexOf(participant);
-      if (idx === -1) {
-        item.shared_by.push(participant);
+  // Restore scroll position after items update
+  React.useEffect(() => {
+    restoreScrollPosition();
+  }, [items, restoreScrollPosition]);
+
+  const toggleItemAssignment = React.useCallback((itemIndex: number, participant: string) => {
+    preserveScrollPosition();
+    
+    setItems(prevItems => {
+      const updatedItems = [...prevItems];
+      const item = { ...updatedItems[itemIndex] };
+      
+      if (!item.shared_by) {
+        item.shared_by = [];
       } else {
-        item.shared_by.splice(idx, 1);
+        item.shared_by = [...item.shared_by]; // Create new array to avoid mutation
       }
-    } else {
-      // Multi-unit items use duplicate entries per unit
-      const participantQty = item.shared_by.filter(p => p === participant).length;
-      const totalAssigned = item.shared_by.length;
 
-      if (participantQty === 0 && totalAssigned < item.qty) {
-        item.shared_by.push(participant);
-      } else if (participantQty > 0 && totalAssigned < item.qty) {
-        item.shared_by.push(participant);
+      if (item.qty === 1 || item.shareEqually) {
+        // Simple toggle membership for single-unit items or share equally items
+        const idx = item.shared_by.indexOf(participant);
+        if (idx === -1) {
+          item.shared_by.push(participant);
+        } else {
+          item.shared_by.splice(idx, 1);
+        }
       } else {
-        item.shared_by = item.shared_by.filter(p => p !== participant);
-      }
-    }
+        // Multi-unit items use duplicate entries per unit
+        const participantQty = item.shared_by.filter(p => p === participant).length;
+        const totalAssigned = item.shared_by.length;
 
-    setItems(updatedItems);
-  };
+        if (participantQty === 0 && totalAssigned < item.qty) {
+          item.shared_by.push(participant);
+        } else if (participantQty > 0 && totalAssigned < item.qty) {
+          item.shared_by.push(participant);
+        } else {
+          item.shared_by = item.shared_by.filter(p => p !== participant);
+        }
+      }
+
+      updatedItems[itemIndex] = item;
+      return updatedItems;
+    });
+  }, [preserveScrollPosition]);
 
   const getCheckboxState = (item: ReceiptItem, participant: string) => {
     if (item.qty === 1 || item.shareEqually) {
@@ -1360,26 +1402,42 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
     }
   };
 
-  const addUnit = (itemIndex: number, participant: string) => {
-    const updatedItems = [...items];
-    const item = updatedItems[itemIndex];
-    if (!item.shared_by) item.shared_by = [];
-    const totalAssigned = item.shared_by.length;
-    if (totalAssigned >= item.qty) return; // no units left
-    item.shared_by.push(participant);
-    setItems(updatedItems);
-  };
+  const addUnit = React.useCallback((itemIndex: number, participant: string) => {
+    preserveScrollPosition();
+    
+    setItems(prevItems => {
+      const updatedItems = [...prevItems];
+      const item = { ...updatedItems[itemIndex] };
+      if (!item.shared_by) item.shared_by = [];
+      else item.shared_by = [...item.shared_by];
+      
+      const totalAssigned = item.shared_by.length;
+      if (totalAssigned >= item.qty) return prevItems; // no units left
+      
+      item.shared_by.push(participant);
+      updatedItems[itemIndex] = item;
+      return updatedItems;
+    });
+  }, [preserveScrollPosition]);
 
-  const removeUnit = (itemIndex: number, participant: string) => {
-    const updatedItems = [...items];
-    const item = updatedItems[itemIndex];
-    if (!item.shared_by) return;
-    const idx = item.shared_by.indexOf(participant);
-    if (idx !== -1) {
-      item.shared_by.splice(idx, 1);
-      setItems(updatedItems);
-    }
-  };
+  const removeUnit = React.useCallback((itemIndex: number, participant: string) => {
+    preserveScrollPosition();
+    
+    setItems(prevItems => {
+      const updatedItems = [...prevItems];
+      const item = { ...updatedItems[itemIndex] };
+      if (!item.shared_by) return prevItems;
+      
+      item.shared_by = [...item.shared_by];
+      const idx = item.shared_by.indexOf(participant);
+      if (idx !== -1) {
+        item.shared_by.splice(idx, 1);
+        updatedItems[itemIndex] = item;
+        return updatedItems;
+      }
+      return prevItems;
+    });
+  }, [preserveScrollPosition]);
 
   // Loading state
   if (loading) {
@@ -2422,7 +2480,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
           index={currentParticipantIndex}
           onChangeIndex={handleSwipeChange}
         >
-          {participants.map((participant) => (
+          {participants.map((participant, participantIndex) => (
             <Box key={participant} sx={{ height: '100%', display: 'flex' }}>
               <IndividualReceiptCard>
                 <ReceiptHeader>
@@ -2542,6 +2600,11 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                 </ReceiptHeader>
 
                 <Box 
+                  ref={(el) => {
+                    if (scrollContainerRefs.current) {
+                      scrollContainerRefs.current[participantIndex] = el;
+                    }
+                  }}
                   sx={{ flex: 1, overflowY: 'auto', mb: 2, minHeight: 0 }}
                   data-scrollable="true"
                 >
@@ -2563,7 +2626,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                         }).filter(Boolean).join(', ')
                       : '';
                     return (
-                      <ReceiptItemRow key={itemIndex} sx={{ 
+                      <ReceiptItemRow key={`${item.item}-${itemIndex}`} sx={{ 
                         py: 1.5,
                         px: isSpecialItem ? 1.5 : 1,
                         mb: 1,
