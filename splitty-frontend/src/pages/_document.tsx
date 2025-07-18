@@ -14,44 +14,88 @@ export default function Document() {
         <meta name="theme-color" content="#0F172A" />
         <meta name="msapplication-navbutton-color" content="#0F172A" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
         <style jsx global>{`
-          html, body {
+          html {
+            margin: 0;
+            padding: 0;
+            background: #0f172a !important;
+            color: #F8FAFC !important;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+            width: 100%;
+            min-height: 100%;
+            height: 100%;
+            position: relative;
+            /* Prevent overscroll and rubber band effects */
+            overscroll-behavior: none;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+            /* Disable pull-to-refresh and bounce */
+            -webkit-overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          body {
             margin: 0;
             padding: 0;
             background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%) !important;
             background-attachment: fixed !important;
             background-repeat: no-repeat !important;
-            background-size: cover !important;
+            background-size: 100% 100% !important;
             color: #F8FAFC !important;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            overflow-x: hidden;
-            width: 100%;
             min-height: max(100vh, 100dvh);
-            height: auto;
+            width: 100%;
+            overflow-x: hidden;
             position: relative;
+            /* Mobile-specific overscroll prevention */
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: none;
+            overscroll-behavior-y: none;
+            touch-action: pan-y;
+            /* Disable iOS Safari bounce */
+            -webkit-overscroll-behavior: none;
+            -webkit-overscroll-behavior-y: none;
           }
           
+          /* Create multiple background layers for complete coverage */
           html::before {
             content: '';
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
+            top: -100vh;
+            left: -100vw;
+            width: 300vw;
+            height: 300vh;
             background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
-            z-index: -2;
+            z-index: -10;
             pointer-events: none;
           }
           
           body::before {
             content: '';
             position: fixed;
+            top: -50vh;
+            left: -50vw;
+            width: 200vw;
+            height: 200vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
+            z-index: -5;
+            pointer-events: none;
+          }
+          
+          /* Additional viewport-based background for extreme overscroll */
+          body::after {
+            content: '';
+            position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
-            z-index: -1;
+            z-index: -3;
             pointer-events: none;
           }
           
@@ -66,6 +110,25 @@ export default function Document() {
           
           * {
             box-sizing: border-box;
+          }
+          
+          /* Enhanced mobile viewport handling */
+          @supports (-webkit-touch-callout: none) {
+            body {
+              /* iOS Safari specific fix */
+              position: relative;
+              height: 100vh;
+              height: 100dvh;
+              overflow: hidden;
+            }
+            
+            #__next {
+              height: 100vh;
+              height: 100dvh;
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior: none;
+            }
           }
           
           /* Prevent overscroll and rubber band effects */
