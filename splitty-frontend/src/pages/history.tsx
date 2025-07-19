@@ -267,7 +267,9 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
         console.log('History page: New receipts from API:', data.receipts?.map(r => ({ 
           id: r.id, 
           restaurant: r.restaurant_name, 
-          created_at: r.created_at 
+          created_at: r.created_at,
+          participants: r.participants,
+          participantsLength: r.participants?.length || 0
         })));
         setReceipts(data.receipts || [])
         setRefreshKey(prev => prev + 1) // Force re-render
@@ -723,7 +725,19 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
         ) : (
           <Box key={refreshKey} sx={{ position: 'relative', zIndex: 2, pb: 2 }}>
             <Grid container spacing={3}>
-              {getFilteredAndSortedReceipts().map((receipt, index) => (
+              {getFilteredAndSortedReceipts().map((receipt, index) => {
+                // Debug logging for participants
+                if (receipt.participants?.length === 0) {
+                  console.warn('Receipt with 0 participants:', {
+                    id: receipt.id,
+                    restaurant: receipt.restaurant_name,
+                    participants: receipt.participants,
+                    participantsLength: receipt.participants?.length || 0,
+                    split_results: receipt.split_results,
+                    split_resultsLength: receipt.split_results?.length || 0
+                  });
+                }
+                return (
               <Grid item xs={12} sm={6} md={4} key={receipt.id}>
                 <Box sx={{ animation: `${fadeInUp} 0.8s ease-out ${0.3 + index * 0.1}s both` }}>
                   <ReceiptCard onClick={() => handleViewReceipt(receipt)}>
@@ -818,6 +832,11 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                           size="small" 
                           variant="outlined" 
                         />
+                        <StyledChip 
+                          label={`${receipt.participants?.length || receipt.split_results?.length || 0} people`} 
+                          size="small" 
+                          variant="outlined" 
+                        />
                       </Box>
 
                       <Typography 
@@ -833,7 +852,8 @@ export default function ReceiptHistory({}: ReceiptHistoryProps) {
                   </ReceiptCard>
                 </Box>
               </Grid>
-            ))}
+              );
+            })}
             </Grid>
           </Box>
         )}

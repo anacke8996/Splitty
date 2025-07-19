@@ -10,6 +10,8 @@ const openai = new OpenAI({
 // Test client initialization
 console.log('OpenAI client initialized:', !!openai);
 console.log('API key configured:', !!process.env.OPENAI_API_KEY);
+console.log('API key length:', process.env.OPENAI_API_KEY?.length || 0);
+console.log('API key preview:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...' || 'undefined');
 
 // Helper function to get user from authorization header
 async function getUserFromAuth(req: NextApiRequest) {
@@ -567,6 +569,8 @@ export default async function handler(
     }
 
     if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OpenAI API key not configured');
+      console.error('Environment variables available:', Object.keys(process.env).filter(key => key.includes('OPENAI')));
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
 

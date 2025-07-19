@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import ReceiptProcessor from '../components/ReceiptProcessor';
 import { useAuth } from '../contexts/AuthContext';
@@ -261,6 +261,13 @@ export default function MainApp() {
     const router = useRouter();
     const { user, loading, signOut } = useAuth();
 
+    // Handle authentication redirect
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/auth');
+        }
+    }, [user, loading, router]);
+
     // Show loading spinner while checking authentication
     if (loading) {
         return (
@@ -270,9 +277,8 @@ export default function MainApp() {
         );
     }
 
-    // Redirect to welcome if not logged in
+    // Don't render anything if user is not authenticated
     if (!user) {
-        router.push('/');
         return null;
     }
 

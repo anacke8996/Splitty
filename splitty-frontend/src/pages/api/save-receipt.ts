@@ -79,6 +79,26 @@ export default async function handler(
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Validate that there's at least one participant
+    if (receiptData.participants.length === 0) {
+      return res.status(400).json({ error: 'At least one participant is required' });
+    }
+
+    // Validate that userTotals has entries for all participants
+    if (!receiptData.userTotals || Object.keys(receiptData.userTotals).length === 0) {
+      return res.status(400).json({ error: 'User totals are required' });
+    }
+
+    // Validate that all participants have totals
+    const missingParticipants = receiptData.participants.filter(
+      participant => !(participant in receiptData.userTotals)
+    );
+    if (missingParticipants.length > 0) {
+      return res.status(400).json({ 
+        error: `Missing totals for participants: ${missingParticipants.join(', ')}` 
+      });
+    }
+
     // Create authenticated Supabase client (same pattern as receipts.ts)
     const { createClient } = await import('@supabase/supabase-js');
     const authenticatedSupabase = createClient(
