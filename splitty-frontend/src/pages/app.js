@@ -285,6 +285,13 @@ export default function MainApp() {
     const handleImageUpload = (event) => {
         const file = event.target.files?.[0];
         if (file) {
+            // Check file size (10MB limit for original files)
+            const fileSizeMB = file.size / 1024 / 1024;
+            if (fileSizeMB > 10) {
+                alert(`File is too large (${fileSizeMB.toFixed(1)}MB). Please use a smaller image or the app will compress it automatically.`);
+                return;
+            }
+            
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64String = reader.result;

@@ -37,7 +37,7 @@ async function getUserFromAuth(req: NextApiRequest) {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '15mb', // Increased from default 1mb to handle compressed images
+      sizeLimit: '25mb', // Increased to handle larger images and base64 encoding overhead
     },
   },
 };

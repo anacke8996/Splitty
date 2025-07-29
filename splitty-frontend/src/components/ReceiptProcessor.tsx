@@ -475,6 +475,7 @@ const steps = ['Processing', 'Review Items', 'Add Names', 'Assign Items', 'Summa
 const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComplete }) => {
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [compressing, setCompressing] = useState(false);
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ReceiptItem[]>([]);
@@ -822,6 +823,70 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
 
 
+    // Helper function to compress image data
+    const compressImage = async (base64Data: string, maxSizeMB: number = 8): Promise<string> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Calculate new dimensions to maintain aspect ratio
+          let { width, height } = img;
+          const maxDimension = 2048; // Max dimension to prevent excessive memory usage
+          
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = (height * maxDimension) / width;
+              width = maxDimension;
+            } else {
+              width = (width * maxDimension) / height;
+              height = maxDimension;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Start with high quality and reduce if needed
+          let quality = 0.8;
+          let compressedData = canvas.toDataURL('image/jpeg', quality);
+          
+          // Check if we need to reduce quality further
+          const checkSize = () => {
+            const sizeInMB = (compressedData.length * 0.75) / 1024 / 1024;
+            if (sizeInMB > maxSizeMB && quality > 0.3) {
+              quality -= 0.1;
+              compressedData = canvas.toDataURL('image/jpeg', quality);
+              checkSize();
+            } else {
+              // Extract base64 data without data URL prefix
+              const base64Only = compressedData.split(',')[1];
+              resolve(base64Only);
+            }
+          };
+          
+          checkSize();
+        };
+        
+                 img.onerror = () => {
+           console.warn('Failed to load image for compression, using original');
+           resolve(base64Data);
+         };
+         
+         // Set a timeout to prevent hanging
+         setTimeout(() => {
+           console.warn('Image compression timed out, using original');
+           resolve(base64Data);
+         }, 10000); // 10 second timeout
+        
+        img.src = `data:image/jpeg;base64,${base64Data}`;
+      });
+    };
+
     const processReceipt = async () => {
     try {
       setLoading(true);
@@ -829,6 +894,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
       // Check if the image data might be HEIC format and convert if needed
       let processedImageData = imageData;
       console.log('🔍 Checking if image needs HEIC conversion...');
+      
+      // Check original image size
+      const originalSizeMB = (imageData.length * 0.75) / 1024 / 1024;
+      console.log(`📊 Original image size: ${originalSizeMB.toFixed(2)}MB`);
       
       // If the image data doesn't start with a valid image header, it might be HEIC
       if (imageData && !imageData.startsWith('data:image/')) {
@@ -884,6 +953,22 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             });
           }
           // Continue with original data if conversion fails
+        }
+      }
+      
+      // Compress image if it's too large (over 8MB base64)
+      const currentSizeMB = (processedImageData.length * 0.75) / 1024 / 1024;
+      if (currentSizeMB > 8) {
+        console.log(`🔄 Compressing large image (${currentSizeMB.toFixed(2)}MB)...`);
+        setCompressing(true);
+        try {
+          processedImageData = await compressImage(processedImageData, 8);
+          const compressedSizeMB = (processedImageData.length * 0.75) / 1024 / 1024;
+          console.log(`✅ Image compressed to ${compressedSizeMB.toFixed(2)}MB`);
+        } catch (compressionError) {
+          console.warn('⚠️ Image compression failed, using original:', compressionError);
+        } finally {
+          setCompressing(false);
         }
       }
       
@@ -1452,7 +1537,7 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   color: 'transparent',
                 }}
               >
-                Processing Receipt...
+                {compressing ? 'Compressing Image...' : 'Processing Receipt...'}
               </Typography>
               <Typography 
                 variant="body1" 
@@ -1462,7 +1547,10 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
                   fontSize: '1.1rem',
                 }}
               >
-                AI is extracting items and prices from your receipt
+                {compressing 
+                  ? 'Optimizing image size for faster processing' 
+                  : 'AI is extracting items and prices from your receipt'
+                }
               </Typography>
             </Box>
           </LoadingCard>
