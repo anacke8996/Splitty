@@ -823,9 +823,20 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
 
 
 
-    // Helper function to compress image data
+        // Helper function to compress image data
     const compressImage = async (base64Data: string, maxSizeMB: number = 8): Promise<string> => {
       return new Promise((resolve) => {
+        let timeoutId: NodeJS.Timeout;
+        let isResolved = false;
+        
+        const safeResolve = (result: string) => {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeoutId);
+            resolve(result);
+          }
+        };
+        
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
@@ -865,23 +876,23 @@ const ReceiptProcessor: React.FC<ReceiptProcessorProps> = ({ imageData, onComple
             } else {
               // Extract base64 data without data URL prefix
               const base64Only = compressedData.split(',')[1];
-              resolve(base64Only);
+              safeResolve(base64Only);
             }
           };
           
           checkSize();
         };
         
-                 img.onerror = () => {
-           console.warn('Failed to load image for compression, using original');
-           resolve(base64Data);
-         };
-         
-         // Set a timeout to prevent hanging
-         setTimeout(() => {
-           console.warn('Image compression timed out, using original');
-           resolve(base64Data);
-         }, 10000); // 10 second timeout
+        img.onerror = () => {
+          console.warn('Failed to load image for compression, using original');
+          safeResolve(base64Data);
+        };
+        
+        // Set a timeout to prevent hanging
+        timeoutId = setTimeout(() => {
+          console.warn('Image compression timed out, using original');
+          safeResolve(base64Data);
+        }, 15000); // 15 second timeout
         
         img.src = `data:image/jpeg;base64,${base64Data}`;
       });
